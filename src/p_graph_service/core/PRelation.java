@@ -58,6 +58,8 @@ public class PRelation implements Relationship{
 		}
 		// update index
 		Neo4jDB.INDEX.remRela(GID);
+		long[] pos = Neo4jDB.INDEX.findRela(GID);
+		Neo4jDB.INST.get(pos[1]).logRemRela();
 	}
 
 	@Override

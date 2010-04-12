@@ -96,7 +96,7 @@ public class PNode implements Node {
 			relPos[1] = ownPos[1];
 			relPos[2]=rel.getId();
 			Neo4jDB.INDEX.addRela(relID, relPos);
-			
+			Neo4jDB.INST.get(relPos[1]).logAddRela();
 			// return wrapper
 			return new PRelation(rel);
 		}
@@ -153,6 +153,7 @@ public class PNode implements Node {
 			
 			// register halfRelation to lookup
 			Neo4jDB.INDEX.addRela(relID, hlfPos);
+			Neo4jDB.INST.get(hlfPos[1]).logAddRela();
 			
 			// return wrapper
 			return new PRelation(hlfRel);
@@ -170,6 +171,8 @@ public class PNode implements Node {
 		//NOTE: IMPORTANT! make sure all relationships are removed
 		//otherwise it goes boom until transaction rollback implemented	
 	
+		Neo4jDB.INDEX.remNode(GID);
+		Neo4jDB.INST.get(pos[1]).logRemNode();
 		node.delete();
 	}
 
@@ -218,7 +221,8 @@ public class PNode implements Node {
 			Direction dir) {
 		if(Neo4jDB.PTX==null) throw new NotInTransactionException();
 		refresh();
-		Neo4jDB.PTX.registerResource(pos[1]); 
+		Neo4jDB.PTX.registerResource(pos[1]);
+		Neo4jDB.INST.get(pos[1]).logTraffic();
 		return new PRelation(node.getSingleRelationship(type, dir));
 	}
 
@@ -360,6 +364,7 @@ public class PNode implements Node {
 		@Override
 		public Relationship next() {
 			Relationship rel = relIter.next();
+			Neo4jDB.INST.get(pos[1]).logTraffic();
 			return new PRelation(rel);
 		}
 

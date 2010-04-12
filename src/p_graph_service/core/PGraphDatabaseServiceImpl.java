@@ -156,9 +156,10 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 			aimPos[2] = aimN.getId();
 			curN.setProperty(Neo4jDB.IsGhost, aimPos);
 
-			// update lookup
-			Neo4jDB.INDEX.remNode(nodeGID);
+			// update lookup and instance information
 			Neo4jDB.INDEX.addNode(nodeGID, aimPos);
+			Neo4jDB.INST.get(curPos[1]).logRemNode();
+			Neo4jDB.INST.get(aimPos[1]).logAddNode();
 
 			// store information to reuse on repairing relations if needed
 			if (curN.hasRelationship()) {
@@ -443,9 +444,12 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 				}
 
 				// update lookup
-				Neo4jDB.INDEX.remRela((Long) rs.getProperty(Neo4jDB.GID));
 				Neo4jDB.INDEX.addRela((Long) rs.getProperty(Neo4jDB.GID),
 						newRsPos);
+				Neo4jDB.INST.get(newRsPos[1]).logAddRela();
+				Neo4jDB.INST.get(curPos[1]).logAddRela();
+				
+				
 
 				// mark node for deletion if not needed
 				if (!eNode.hasRelationship()
@@ -472,7 +476,7 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 	@Override
 	public boolean removeInstance(long id) {
 		// TODO not tested will screw up reference node
-		if (Neo4jDB.INST.get(id).getNumberOfNodes() == 0) {
+		if (Neo4jDB.INST.get(id).getNumOfNodes() == 0) {
 			Neo4jDB.INST.remove(id);
 			return true;
 		}
@@ -693,6 +697,7 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 		// register node to lookup service
 		long[] adr = { this.getServiceID(), instanceID, n.getId() };
 		Neo4jDB.INDEX.addNode(gid, adr);
+		Neo4jDB.INST.get(adr[1]).logAddNode();
 
 		return new PNode(n);
 	}
@@ -784,9 +789,45 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 		String folder = Neo4jDB.DB_DIR.getAbsolutePath() + "/" + "instance"
 				+ id;
 		DBInstanceContainer instContainer = new DBInstanceContainer(folder, id);
+		// delete reference node
+		Transaction tx = instContainer.beginTx();
+		try {
+			instContainer.getNodeById(0).delete();
+			tx.success();
+		} finally {
+			tx.finish();
+		}
 		Neo4jDB.INST.put(id, instContainer);
 		placementPol.addInstance(id, instContainer);
 		return true;
+	}
+
+	@Override
+	public long getNumNodes() {
+		long res = 0;
+		for(long key: Neo4jDB.INST.keySet()){
+			res += Neo4jDB.INST.get(key).getNumOfNodes();
+		}
+		return res;
+	}
+
+	@Override
+	public long getNumNodesOn(long id) {
+		return Neo4jDB.INST.get(id).getNumOfNodes();
+	}
+
+	@Override
+	public long getNumRelations() {
+		long res = 0;
+		for(long key: Neo4jDB.INST.keySet()){
+			res += Neo4jDB.INST.get(key).getNumOfRelas();
+		}
+		return res;
+	}
+
+	@Override
+	public long getNumRelationsOn(long id) {
+		return Neo4jDB.INST.get(id).getNumOfRelas();
 	}
 
 }

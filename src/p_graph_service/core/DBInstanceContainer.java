@@ -3,6 +3,7 @@ package p_graph_service.core;
 import java.io.Serializable;
 import java.util.Map;
 
+import org.neo4j.graphdb.Direction;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Relationship;
@@ -17,25 +18,72 @@ import org.neo4j.kernel.EmbeddedGraphDatabase;
  */
 public class DBInstanceContainer implements GraphDatabaseService {
 	private final EmbeddedGraphDatabase db;
+	
+	// id of this instance
 	private final long id;
-	
-	// internal information on the DB
-	private long numNodes;
-	
-	
-	
 	public long getID(){
 		return id;
 	}
 	
-	public long getNumberOfNodes(){
+	// internal information on the DB
+	private long numNodes;
+	private long numRelas;
+	private long traffic;
+	
+	public void logTraffic(){
+		traffic++;
+	}
+	public void logAddNode(){
+		numNodes++;
+	}
+	public void logRemNode(){
+		numNodes--;
+	}
+	
+	public void logAddRela(){
+		numRelas++;
+	}
+	
+	public void logRemRela(){
+		numRelas--;
+	}
+	
+	
+	public long getNumOfNodes(){
 		return numNodes;
+	}
+	public long getNumOfRelas(){
+		return numRelas;
+	}
+	public long getTraffic(){
+		return traffic;
 	}
 	
 	public DBInstanceContainer(String path, long id) {
 		this.id = id;
 		this.db = new EmbeddedGraphDatabase(path);
 		this.numNodes = 0;
+		this.traffic = 0;
+		this.numRelas = 0;
+		
+		// count relationships and nodes (ghosts and entities without GID are excluded)
+		Transaction tx = beginTx();
+		try {
+			for(Node n :  getAllNodes()){
+				if(n.hasProperty(Neo4jDB.GID) && !n.hasProperty(Neo4jDB.IsGhost)){
+					logAddNode();
+					for(Relationship r : n.getRelationships(Direction.OUTGOING)){
+						if(n.hasProperty(Neo4jDB.GID) && !r.hasProperty(Neo4jDB.IsGhost)){
+							logAddRela();
+						}
+					}
+				}
+			}
+			
+			tx.success();
+		} finally {
+			tx.finish();
+		}
 	}
 	
 	@Override
@@ -45,7 +93,7 @@ public class DBInstanceContainer implements GraphDatabaseService {
 
 	@Override
 	public Node createNode() {
-		numNodes++;
+		traffic++;
 		return db.createNode();
 	}
 
@@ -61,21 +109,25 @@ public class DBInstanceContainer implements GraphDatabaseService {
 
 	@Override
 	public Iterable<Node> getAllNodes() {
+		traffic += numNodes;
 		return db.getAllNodes();
 	}
 
 	@Override
 	public Node getNodeById(long id) {
+		traffic++;
 		return db.getNodeById(id);
 	}
 
 	@Override
 	public Node getReferenceNode() {
+		traffic++;
 		return db.getReferenceNode();
 	}
 
 	@Override
 	public Relationship getRelationshipById(long id) {
+		traffic++;
 		return db.getRelationshipById(id);
 	}
 

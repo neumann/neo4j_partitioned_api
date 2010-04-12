@@ -16,10 +16,10 @@ import com.sleepycat.je.Environment;
 import com.sleepycat.je.EnvironmentConfig;
 
 public class BDB_GIDLookupImpl implements GIDLookup {
-	Environment environment;
-	Database RelationBDB;
-	Database NodeBDB;
-
+	private Environment environment;
+	private Database RelationBDB;
+	private Database NodeBDB;
+	
 	public BDB_GIDLookupImpl(String aim) {
 		
 		EnvironmentConfig environmentConfig = new EnvironmentConfig();
@@ -51,11 +51,12 @@ public class BDB_GIDLookupImpl implements GIDLookup {
 		RelationBDB = environment.openDatabase(null, "Relation",
 				databaseConfig);
 		NodeBDB = environment.openDatabase(null, "Node",
-				databaseConfig);
+				databaseConfig);	
 	}
 
 	@Override
 	public void addNode(long gid, long[] pos) {
+		// update index
 		DatabaseEntry key = longToEntry(gid);
 		DatabaseEntry data = addrToEntry(pos);
 		NodeBDB.put(null, key, data);
@@ -63,6 +64,7 @@ public class BDB_GIDLookupImpl implements GIDLookup {
 
 	@Override
 	public void addRela(long gid, long[] pos) {
+		// update index
 		DatabaseEntry key = longToEntry(gid);
 		DatabaseEntry data = addrToEntry(pos);
 		RelationBDB.put(null, key, data);
@@ -158,5 +160,5 @@ public class BDB_GIDLookupImpl implements GIDLookup {
 		}
 		return res;
 	}
-
+	
 }

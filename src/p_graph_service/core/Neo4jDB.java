@@ -26,7 +26,7 @@ public class Neo4jDB {
 	protected static final String InstaceRegex = "instance\\d*";
 
 	// neo4j instances
-	protected static HashMap<Long,DBInstanceContainer>INST;
+	public static HashMap<Long,DBInstanceContainer>INST;
 	// berkley db lookup service
 	protected static GIDLookup INDEX;
 	// GID generator (basically copy of the neo4j version)
