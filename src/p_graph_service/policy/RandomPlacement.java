@@ -1,16 +1,22 @@
-package p_graph_service.core;
+package p_graph_service.policy;
 
 import java.util.Random;
 import java.util.Vector;
 
 import p_graph_service.PlacementPolicy;
+import p_graph_service.core.DBInstanceContainer;
 
-public class Random_PlacementPolicyImpl implements PlacementPolicy {
+public class RandomPlacement implements PlacementPolicy {
 	private Random rand;
 	private Vector<Long> inst;
 	
-	public Random_PlacementPolicyImpl() {
+	public RandomPlacement() {
 		rand = new Random();
+		inst = new Vector<Long>();
+	}
+	
+	public RandomPlacement( long seed) {
+		rand = new Random(seed);
 		inst = new Vector<Long>();
 	}
 

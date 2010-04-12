@@ -19,6 +19,7 @@ import org.neo4j.kernel.EmbeddedGraphDatabase;
 
 import p_graph_service.PGraphDatabaseService;
 import p_graph_service.PlacementPolicy;
+import p_graph_service.policy.RandomPlacement;
 
 public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 	private final long SERVICE_ID;
@@ -31,7 +32,7 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 		this.SERVICE_ID = id;
 
 		// TODO put policy to a setting file
-		this.placementPol = new Random_PlacementPolicyImpl();
+		this.placementPol = new RandomPlacement();
 
 		Neo4jDB.startup(path);
 
