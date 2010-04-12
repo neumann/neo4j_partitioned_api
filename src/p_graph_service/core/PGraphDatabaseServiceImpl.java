@@ -830,4 +830,9 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 		return Neo4jDB.INST.get(id).getNumOfRelas();
 	}
 
+	@Override
+	public long getTrafficOn(long id) {
+		return Neo4jDB.INST.get(id).getTraffic();
+	}
+
 }

@@ -13,9 +13,11 @@ public interface PGraphDatabaseService extends GraphDatabaseService {
 	
 	// storage information
 	public long getNumNodes();
-	public long getNumNodesOn(long id);
 	public long getNumRelations();
+	public long getNumNodesOn(long id);
 	public long getNumRelationsOn(long id);
+	public long getTrafficOn(long id);
+	
 	
 	// policy used when creating a node without specifying the target position
 	public PlacementPolicy getPlacementPolicy();
