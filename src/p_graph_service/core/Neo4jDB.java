@@ -13,7 +13,6 @@ import org.neo4j.kernel.impl.nioneo.store.IdGenerator;
 import org.neo4j.kernel.impl.nioneo.store.IdGeneratorImpl;
 
 import p_graph_service.GIDLookup;
-
 public class Neo4jDB {
 	
 	// version number changes if nodes moved around
@@ -135,5 +134,4 @@ public class Neo4jDB {
 		}
 		return res;
 	}
-	
 }

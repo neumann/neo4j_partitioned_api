@@ -30,8 +30,9 @@ public interface PGraphDatabaseService extends GraphDatabaseService {
 	public boolean migrateInstance(String path, long id);
 	
 	// creating a node or moving a node to a certain instance
-	public Node createNode(long instanceID);
-	public Node createNode(long GID, long instanceID);
+	public Node createNode(long GID);
+	public Node createNodeOn(long instanceID);
+	public Node createNodeOn(long GID, long instanceID);
 	public void moveNodes(Iterable<Node> nodes, long instanceID);
 
 	// takes a normal neo4j instance and forms it into a distributed version

@@ -8,6 +8,7 @@ import org.neo4j.graphdb.RelationshipType;
 
 public class PRelation implements Relationship{
 	private final long GID;
+	private long[] pos;
 	private Relationship rela;
 	private long version;
 	
@@ -16,10 +17,11 @@ public class PRelation implements Relationship{
 		this.GID = (Long)rel.getProperty(Neo4jDB.GID);
 		// it was a ghost relation so take the half relation instead
 		if(rel.hasProperty(Neo4jDB.IsGhost)){
-			long[] pos = (long[]) rel.getProperty(Neo4jDB.IsGhost);
+			pos = (long[]) rel.getProperty(Neo4jDB.IsGhost);
 			this.rela = Neo4jDB.INST.get(pos[1]).getRelationshipById(pos[2]);
 		}else{
 			this.rela = rel;
+			this.pos = Neo4jDB.INDEX.findRela(GID);
 		}
 		this.version = Neo4jDB.VERS;
 	}
@@ -27,7 +29,7 @@ public class PRelation implements Relationship{
 	//NOTE will go boom if relationship has been moved to an other server
 	private void refresh(){
 		if(version != Neo4jDB.VERS){
-			long[] pos = Neo4jDB.INDEX.findRela(GID);
+			pos = Neo4jDB.INDEX.findRela(GID);
 			rela = Neo4jDB.INST.get(pos[1]).getRelationshipById(pos[2]);
 		}
 	}
@@ -37,11 +39,14 @@ public class PRelation implements Relationship{
 		if(Neo4jDB.PTX == null) throw new NotInTransactionException();
 		refresh();
 		
+		// count traffic
+		Neo4jDB.INST.get(pos[1]).logTraffic();
+		
 		// if halfRelation also delete ghostRelation
 		// cannot be a ghost relation itself since wrapper always contrains the half relation
 		if(rela.hasProperty(Neo4jDB.IsHalf)){
-			long[] pos = (long[])rela.getProperty(Neo4jDB.IsHalf);
-			Relationship gRela = Neo4jDB.INST.get(pos[1]).getRelationshipById(pos[2]);
+			long[] otherPos = (long[])rela.getProperty(Neo4jDB.IsHalf);
+			Relationship gRela = Neo4jDB.INST.get(otherPos[1]).getRelationshipById(otherPos[2]);
 			Node gSrtNode = gRela.getStartNode();
 			gRela.delete();
 			if(!gSrtNode.hasRelationship()){
@@ -52,8 +57,11 @@ public class PRelation implements Relationship{
 			rela.delete();
 			if(!gEndNode.hasRelationship()){
 				gEndNode.delete();
-			}			
-		}else{
+			}
+			//count traffic
+			Neo4jDB.INST.get(otherPos[1]).logTraffic();
+			
+		}else{	
 			rela.delete();
 		}
 		// update index
@@ -165,5 +173,10 @@ public class PRelation implements Relationship{
 		if(Neo4jDB.PTX == null) throw new NotInTransactionException();
 		refresh();
 		rela.setProperty(key, value);
+	}
+	
+	public long[] getPos(){
+		refresh();
+		return pos.clone();
 	}
 }

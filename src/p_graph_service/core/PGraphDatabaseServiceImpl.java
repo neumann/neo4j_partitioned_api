@@ -23,7 +23,6 @@ import p_graph_service.policy.RandomPlacement;
 
 public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 	private final long SERVICE_ID;
-
 	private PlacementPolicy placementPol;
 
 	// if no instance is found it is an empty container
@@ -46,44 +45,34 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 	}
 
 	@Override
-	// creates a new DB-instance and allocates a ID
-	public boolean addInstance() {
-		return addInstance(System.currentTimeMillis());
-	}
-
-	@Override
-	public Node createNode(long instanceID) {
-		if (Neo4jDB.PTX == null)
-			throw new NotInTransactionException();
-		// create GID
-		long gid = createGID();
-		return createNode(gid, instanceID);
-	}
-
-	@Override
-	public long[] getInstancesIDs() {
-		long[] res = new long[Neo4jDB.INST.keySet().size()];
-		int i = 0;
-		for (long id : Neo4jDB.INST.keySet()) {
-			res[i] = id;
-			i++;
-		}
-		return res;
-	}
-
-	@Override
-	public int getNumInstances() {
-		return Neo4jDB.INST.values().size();
-	}
-
-	@Override
 	public PlacementPolicy getPlacementPolicy() {
 		return placementPol;
+	}
+	
+	@Override
+	public void setPlacementPolicy(PlacementPolicy pol) {
+		this.placementPol = pol;
 	}
 
 	@Override
 	public long getServiceID() {
 		return SERVICE_ID;
+	}
+	
+	@Override
+	public boolean removeInstance(long id) {
+		// TODO not tested will screw up reference node
+		if (Neo4jDB.INST.get(id).getNumOfNodes() == 0) {
+			Neo4jDB.INST.remove(id);
+			return true;
+		}
+		return false;
+	}
+
+	@Override
+	// creates a new DB-instance and allocates a ID
+	public boolean addInstance() {
+		return addInstance(System.currentTimeMillis());
 	}
 
 	@Override
@@ -101,7 +90,46 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 		}
 		return false;
 	}
+	
+	@Override
+	public long[] getInstancesIDs() {
+		long[] res = new long[Neo4jDB.INST.keySet().size()];
+		int i = 0;
+		for (long id : Neo4jDB.INST.keySet()) {
+			res[i] = id;
+			i++;
+		}
+		return res;
+	}
 
+	@Override
+	public int getNumInstances() {
+		return Neo4jDB.INST.values().size();
+	}
+
+	@Override
+	public Node createNode(long gid) {
+		if (Neo4jDB.PTX == null)
+			throw new NotInTransactionException();
+		return createNodeOn(gid, placementPol.getPosition());
+	}
+	
+	@Override
+	public Node createNodeOn(long instanceID) {
+		if (Neo4jDB.PTX == null)
+			throw new NotInTransactionException();
+		// create GID
+		long gid = createGID();
+		return createNodeOn(gid, instanceID);
+	}
+	
+	@Override
+	public Node createNode() {
+		if (Neo4jDB.PTX == null)
+			throw new NotInTransactionException();
+		return createNode(placementPol.getPosition());
+	}
+	
 	@Override
 	// forms iterator internally to list so it can run out of heapspace
 	public void moveNodes(Iterable<Node> partitionedNodes, long instanceID) {
@@ -449,8 +477,6 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 						newRsPos);
 				Neo4jDB.INST.get(newRsPos[1]).logAddRela();
 				Neo4jDB.INST.get(curPos[1]).logAddRela();
-				
-				
 
 				// mark node for deletion if not needed
 				if (!eNode.hasRelationship()
@@ -474,20 +500,7 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 		Neo4jDB.VERS++;
 	}
 
-	@Override
-	public boolean removeInstance(long id) {
-		// TODO not tested will screw up reference node
-		if (Neo4jDB.INST.get(id).getNumOfNodes() == 0) {
-			Neo4jDB.INST.remove(id);
-			return true;
-		}
-		return false;
-	}
-
-	@Override
-	public void setPlacementPolicy(PlacementPolicy pol) {
-		this.placementPol = pol;
-	}
+	
 
 	@Override
 	public Transaction beginTx() {
@@ -497,12 +510,7 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 		return Neo4jDB.PTX;
 	}
 
-	@Override
-	public Node createNode() {
-		if (Neo4jDB.PTX == null)
-			throw new NotInTransactionException();
-		return createNode(placementPol.getPosition());
-	}
+	
 
 	@Override
 	public boolean enableRemoteShell() {
@@ -682,7 +690,7 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 	}
 
 	@Override
-	public Node createNode(long gid, long instanceID) {
+	public Node createNodeOn(long gid, long instanceID) {
 		if (Neo4jDB.PTX == null)
 			throw new NotInTransactionException();
 		DBInstanceContainer inst = Neo4jDB.INST.get(instanceID);
@@ -707,7 +715,6 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 	public void createDistribution(String db) {
 		GraphDatabaseService dbS = new EmbeddedGraphDatabase(db);
 
-		
 		// load all instance ids
 		HashSet<Long> instIDs = new HashSet<Long>();
 		for (Long instID : getInstancesIDs()) {
@@ -715,7 +722,7 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 		}
 
 		Transaction tx = dbS.beginTx();
-		try {	
+		try {
 			// my own transaction
 			Transaction pTx = beginTx();
 			try {
@@ -733,9 +740,8 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 						addInstance(targetInst);
 						instIDs.add(targetInst);
 					}
+					Node newN = createNodeOn(gid, targetInst);
 
-					// create and copy node
-					Node newN = createNode(gid, targetInst);
 					for (String key : n.getPropertyKeys()) {
 						newN.setProperty(key, n.getProperty(key));
 					}
@@ -780,7 +786,7 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 		} finally {
 			tx.finish();
 		}
-			
+
 		dbS.shutdown();
 
 	}
@@ -806,7 +812,7 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 	@Override
 	public long getNumNodes() {
 		long res = 0;
-		for(long key: Neo4jDB.INST.keySet()){
+		for (long key : Neo4jDB.INST.keySet()) {
 			res += Neo4jDB.INST.get(key).getNumOfNodes();
 		}
 		return res;
@@ -820,7 +826,7 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 	@Override
 	public long getNumRelations() {
 		long res = 0;
-		for(long key: Neo4jDB.INST.keySet()){
+		for (long key : Neo4jDB.INST.keySet()) {
 			res += Neo4jDB.INST.get(key).getNumOfRelas();
 		}
 		return res;

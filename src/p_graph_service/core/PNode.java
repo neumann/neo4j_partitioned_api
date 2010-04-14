@@ -54,15 +54,15 @@ public class PNode implements Node {
 		return node;
 	}
 	
-	protected long[] getPos() {
+	public long[] getPos() {
 		refresh();
-		return pos;
+		return pos.clone();
 	}
 		
 	@Override
 	public Relationship createRelationshipTo(Node otherNodeP,
 			RelationshipType type) {
-		
+	
 		// transaction
 		if(Neo4jDB.PTX==null) throw new NotInTransactionException();
 		refresh();
@@ -71,10 +71,14 @@ public class PNode implements Node {
 		
 		//IMPORTANT! has to be atomic, it will mess up the DB when data is moved while altering it
 		//check own position
-		long[] ownPos = pos;
+		long[] ownPos = pos.clone();
 		//check target position
 		long[] otherPos = Neo4jDB.INDEX.findNode(((PNode)otherNodeP).getId());
 	
+		// log traffic on the instances
+		Neo4jDB.INST.get(ownPos[1]).logTraffic();
+		Neo4jDB.INST.get(otherPos[1]).logTraffic();
+		
 		// create transactions if not already existing
 		Neo4jDB.PTX.registerResource(ownPos[1]);
 		Neo4jDB.PTX.registerResource(otherPos[1]);
@@ -170,7 +174,8 @@ public class PNode implements Node {
 		
 		//NOTE: IMPORTANT! make sure all relationships are removed
 		//otherwise it goes boom until transaction rollback implemented	
-	
+		Neo4jDB.INST.get(pos[1]).logTraffic();
+		
 		Neo4jDB.INDEX.remNode(GID);
 		Neo4jDB.INST.get(pos[1]).logRemNode();
 		node.delete();

@@ -30,6 +30,7 @@ public class DBInstanceContainer implements GraphDatabaseService {
 	private long numRelas;
 	private long traffic;
 	
+	// traffic is define by: create Node, create Relationship, get Node, get Relationship,  delete Node, delete Relationship
 	public void logTraffic(){
 		traffic++;
 	}
@@ -93,7 +94,7 @@ public class DBInstanceContainer implements GraphDatabaseService {
 
 	@Override
 	public Node createNode() {
-		traffic++;
+		logTraffic();
 		return db.createNode();
 	}
 
@@ -115,19 +116,19 @@ public class DBInstanceContainer implements GraphDatabaseService {
 
 	@Override
 	public Node getNodeById(long id) {
-		traffic++;
+		logTraffic();
 		return db.getNodeById(id);
 	}
 
 	@Override
 	public Node getReferenceNode() {
-		traffic++;
+		logTraffic();
 		return db.getReferenceNode();
 	}
 
 	@Override
 	public Relationship getRelationshipById(long id) {
-		traffic++;
+		logTraffic();
 		return db.getRelationshipById(id);
 	}
 
