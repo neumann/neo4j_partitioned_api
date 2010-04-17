@@ -1,6 +1,7 @@
 package p_graph_service.core;
 
 import org.neo4j.graphdb.Node;
+import org.neo4j.graphdb.NotFoundException;
 import org.neo4j.graphdb.NotInTransactionException;
 import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.RelationshipType;
@@ -97,11 +98,16 @@ public class PRelation implements Relationship{
 	public Node getOtherNode(Node node) {
 		if(Neo4jDB.PTX == null) throw new NotInTransactionException();
 		refresh();
+		
 		Node wSrtNode = new PNode(rela.getStartNode());
 		if(node.getId() == wSrtNode.getId()){
 			return getEndNode();
 		}
-		return wSrtNode;
+		if(node.getId() == getEndNode().getId()){
+			return wSrtNode;
+		}
+		throw new NotFoundException( "Node[" + node.getId()
+	            + "] not connected to this relationship[" + getId() + "]" );	
 	}
 
 	@Override
