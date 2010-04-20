@@ -18,7 +18,9 @@ public class Neo4jDB {
 	// version number changes if nodes moved around
 	protected static long VERS = 0;
 	
-	protected static final String GID = "_GID";
+	protected static final String rGID = "_rGID";
+	protected static final String nGID = "_nGID";
+	
 	protected static final String IsGhost = "_IsGhost";
 	protected static final String IsHalf = "_IsHalf";
 	// naming for the neo4j folder
@@ -68,7 +70,7 @@ public class Neo4jDB {
 		}
 		
 		//TODO save an load ID in a right way
-		File gidStoreNode = new File(path+"/"+Neo4jDB.GID+"_Node");
+		File gidStoreNode = new File(path+"/"+Neo4jDB.nGID);
 		try {
 			GIDGenNode = new IdGeneratorImpl(gidStoreNode.getAbsolutePath(), 100);
 		} catch (Exception e) {
@@ -78,7 +80,7 @@ public class Neo4jDB {
 			GIDGenNode = new IdGeneratorImpl(gidStoreNode.getAbsolutePath(), 100);
 		}
 		
-		File gidStoreRela = new File(path+"/"+Neo4jDB.GID+"_Rela");
+		File gidStoreRela = new File(path+"/"+Neo4jDB.rGID);
 		try {
 			GIDGenRela = new IdGeneratorImpl(gidStoreRela.getAbsolutePath(), 100);
 		} catch (Exception e) {

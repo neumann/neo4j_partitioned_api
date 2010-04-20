@@ -15,7 +15,7 @@ public class PRelation implements Relationship{
 	
 	//NOTE don't hand it ghost relation that resolve to half relations on other servers
 	public PRelation(Relationship rel) {
-		this.GID = (Long)rel.getProperty(Neo4jDB.GID);
+		this.GID = (Long)rel.getProperty(Neo4jDB.rGID);
 		// it was a ghost relation so take the half relation instead
 		if(rel.hasProperty(Neo4jDB.IsGhost)){
 			pos = (long[]) rel.getProperty(Neo4jDB.IsGhost);

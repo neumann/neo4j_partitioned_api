@@ -23,7 +23,7 @@ public class PNode implements Node {
 	// constructor
 	// NOTE don't give it ghost nodes that resolve to other servers or it will go boom
 	public PNode(Node n) {
-		this.GID = (Long)n.getProperty(Neo4jDB.GID);
+		this.GID = (Long)n.getProperty(Neo4jDB.nGID);
 		this.pos = Neo4jDB.INDEX.findNode(GID);
 		if(n.hasProperty(Neo4jDB.IsGhost)){
 			this.node = Neo4jDB.INST.get(pos[1]).getNodeById(pos[2]);
@@ -93,7 +93,7 @@ public class PNode implements Node {
 			// relationship with id
 			long relID = Neo4jDB.GIDGenRela.nextId();
 			Relationship rel = node.createRelationshipTo(otherNodeUW, type);
-			rel.setProperty(Neo4jDB.GID, relID);
+			rel.setProperty(Neo4jDB.rGID, relID);
 			// register to lookup
 			long[] relPos = new long[3];
 			relPos[0] = ownPos[0];
@@ -119,14 +119,14 @@ public class PNode implements Node {
 			// create ghost endNode if not found
 			if(otherGNode == null){
 				otherGNode = Neo4jDB.INST.get(ownPos[1]).createNode();
-				otherGNode.setProperty(Neo4jDB.GID, otherNodeP.getId());
+				otherGNode.setProperty(Neo4jDB.nGID, otherNodeP.getId());
 				otherGNode.setProperty(Neo4jDB.IsGhost, otherPos);
 			}
 			
 			// create ghost srtNode if not found
 			if(srtGNode==null){
 				srtGNode = Neo4jDB.INST.get(otherPos[1]).createNode();
-				srtGNode.setProperty(Neo4jDB.GID, GID);
+				srtGNode.setProperty(Neo4jDB.nGID, GID);
 				srtGNode.setProperty(Neo4jDB.IsGhost, ownPos);
 			}
 			
@@ -135,11 +135,11 @@ public class PNode implements Node {
 			
 			// create halfRelation
 			Relationship hlfRel = node.createRelationshipTo(otherGNode, type);
-			hlfRel.setProperty(Neo4jDB.GID, relID);
+			hlfRel.setProperty(Neo4jDB.rGID, relID);
 			
 			// ghost relation
 			Relationship gstRel = srtGNode.createRelationshipTo(otherNodeUW, type);
-			gstRel.setProperty(Neo4jDB.GID, relID);
+			gstRel.setProperty(Neo4jDB.rGID, relID);
 			
 			long[] hlfPos = new long[3];
 			hlfPos[0] = ownPos[0];

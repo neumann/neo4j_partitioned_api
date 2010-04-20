@@ -168,7 +168,7 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 			// create a new node if none has been found
 			if (aimN == null) {
 				aimN = Neo4jDB.INST.get(instanceID).createNode();
-				aimN.setProperty(Neo4jDB.GID, nodeGID);
+				aimN.setProperty(Neo4jDB.nGID, nodeGID);
 			} else {
 				// make aim node a none ghost
 				aimN.removeProperty(Neo4jDB.IsGhost);
@@ -246,8 +246,8 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 							if (newGRelStartNode == null) {
 								newGRelStartNode = Neo4jDB.INST.get(instanceID)
 										.createNode();
-								newGRelStartNode.setProperty(Neo4jDB.GID, sNode
-										.getProperty(Neo4jDB.GID));
+								newGRelStartNode.setProperty(Neo4jDB.nGID, sNode
+										.getProperty(Neo4jDB.nGID));
 								newGRelStartNode.setProperty(Neo4jDB.IsGhost,
 										sNode.getProperty(Neo4jDB.IsGhost));
 							}
@@ -256,8 +256,8 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 							// relation
 							Relationship newRS = newGRelStartNode
 									.createRelationshipTo(aimN, rs.getType());
-							newRS.setProperty(Neo4jDB.GID, rs
-									.getProperty(Neo4jDB.GID));
+							newRS.setProperty(Neo4jDB.rGID, rs
+									.getProperty(Neo4jDB.rGID));
 							newRS.setProperty(Neo4jDB.IsGhost, rs
 									.getProperty(Neo4jDB.IsGhost));
 
@@ -288,15 +288,15 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 					if (newGRelStartNode == null) {
 						newGRelStartNode = Neo4jDB.INST.get(instanceID)
 								.createNode();
-						newGRelStartNode.setProperty(Neo4jDB.GID, sNode
-								.getProperty(Neo4jDB.GID));
+						newGRelStartNode.setProperty(Neo4jDB.nGID, sNode
+								.getProperty(Neo4jDB.nGID));
 						newGRelStartNode.setProperty(Neo4jDB.IsGhost, sNodePos);
 					}
 
 					// create the ghost relation and link it to half relation
 					Relationship newRS = newGRelStartNode.createRelationshipTo(
 							aimN, rs.getType());
-					newRS.setProperty(Neo4jDB.GID, rs.getProperty(Neo4jDB.GID));
+					newRS.setProperty(Neo4jDB.rGID, rs.getProperty(Neo4jDB.rGID));
 					long[] hRelPos = new long[3];
 					hRelPos[0] = curPos[0];
 					hRelPos[1] = curPos[1];
@@ -383,8 +383,8 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 						if (newENode == null) {
 							newENode = Neo4jDB.INST.get(instanceID)
 									.createNode();
-							newENode.setProperty(Neo4jDB.GID, eNode
-									.getProperty(Neo4jDB.GID));
+							newENode.setProperty(Neo4jDB.nGID, eNode
+									.getProperty(Neo4jDB.nGID));
 							newENode.setProperty(Neo4jDB.IsGhost, eNode
 									.getProperty(Neo4jDB.IsGhost));
 						}
@@ -446,8 +446,8 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 						if (newENode == null) {
 							newENode = Neo4jDB.INST.get(instanceID)
 									.createNode();
-							newENode.setProperty(Neo4jDB.GID, eNode
-									.getProperty(Neo4jDB.GID));
+							newENode.setProperty(Neo4jDB.nGID, eNode
+									.getProperty(Neo4jDB.nGID));
 							newENode.setProperty(Neo4jDB.IsGhost, eNodePos);
 						}
 						// create the half relation and link it to ghost
@@ -473,7 +473,7 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 				}
 
 				// update lookup
-				Neo4jDB.INDEX.addRela((Long) rs.getProperty(Neo4jDB.GID),
+				Neo4jDB.INDEX.addRela((Long) rs.getProperty(Neo4jDB.rGID),
 						newRsPos);
 				Neo4jDB.INST.get(newRsPos[1]).logAddRela();
 				Neo4jDB.INST.get(curPos[1]).logAddRela();
@@ -701,7 +701,7 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 		// create node
 		Node n = null;
 		n = inst.createNode();
-		n.setProperty(Neo4jDB.GID, gid);
+		n.setProperty(Neo4jDB.nGID, gid);
 
 		// register node to lookup service
 		long[] adr = { this.getServiceID(), instanceID, n.getId() };
@@ -771,6 +771,8 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 						Node endNode = getNodeById(endNodeGID);
 						Relationship newRs = srtNode.createRelationshipTo(
 								endNode, rs.getType());
+						// set the GID to the relationship LID
+						newRs.setProperty(Neo4jDB.rGID, rs.getId());
 
 						// copy all properties
 						for (String key : rs.getPropertyKeys()) {

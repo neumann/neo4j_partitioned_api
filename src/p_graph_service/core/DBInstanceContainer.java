@@ -71,10 +71,10 @@ public class DBInstanceContainer implements GraphDatabaseService {
 		Transaction tx = beginTx();
 		try {
 			for(Node n :  getAllNodes()){
-				if(n.hasProperty(Neo4jDB.GID) && !n.hasProperty(Neo4jDB.IsGhost)){
+				if(n.hasProperty(Neo4jDB.nGID) && !n.hasProperty(Neo4jDB.IsGhost)){
 					logAddNode();
 					for(Relationship r : n.getRelationships(Direction.OUTGOING)){
-						if(n.hasProperty(Neo4jDB.GID) && !r.hasProperty(Neo4jDB.IsGhost)){
+						if(r.hasProperty(Neo4jDB.rGID) && !r.hasProperty(Neo4jDB.IsGhost)){
 							logAddRela();
 						}
 					}
