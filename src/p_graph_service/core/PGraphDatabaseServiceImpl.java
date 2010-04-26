@@ -129,7 +129,7 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 	public Node createNode() {
 		if (Neo4jDB.PTX == null)
 			throw new NotInTransactionException();
-		return createNode(placementPol.getPosition());
+		return createNodeOn(placementPol.getPosition());
 	}
 	
 	@Override

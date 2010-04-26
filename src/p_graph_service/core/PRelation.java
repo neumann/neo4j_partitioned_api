@@ -19,6 +19,7 @@ public class PRelation implements Relationship{
 		// it was a ghost relation so take the half relation instead
 		if(rel.hasProperty(Neo4jDB.IsGhost)){
 			pos = (long[]) rel.getProperty(Neo4jDB.IsGhost);
+			Neo4jDB.PTX.registerResource(pos[1]);
 			this.rela = Neo4jDB.INST.get(pos[1]).getRelationshipById(pos[2]);
 		}else{
 			this.rela = rel;
@@ -31,6 +32,7 @@ public class PRelation implements Relationship{
 	private void refresh(){
 		if(version != Neo4jDB.VERS){
 			pos = Neo4jDB.INDEX.findRela(GID);
+			Neo4jDB.PTX.registerResource(pos[1]);
 			rela = Neo4jDB.INST.get(pos[1]).getRelationshipById(pos[2]);
 		}
 	}
@@ -39,6 +41,7 @@ public class PRelation implements Relationship{
 	public void delete() {
 		if(Neo4jDB.PTX == null) throw new NotInTransactionException();
 		refresh();
+		Neo4jDB.PTX.registerResource(pos[1]);
 		
 		// count traffic
 		Neo4jDB.INST.get(pos[1]).logTraffic();
@@ -47,6 +50,7 @@ public class PRelation implements Relationship{
 		// cannot be a ghost relation itself since wrapper always contrains the half relation
 		if(rela.hasProperty(Neo4jDB.IsHalf)){
 			long[] otherPos = (long[])rela.getProperty(Neo4jDB.IsHalf);
+			Neo4jDB.PTX.registerResource(otherPos[1]);
 			Relationship gRela = Neo4jDB.INST.get(otherPos[1]).getRelationshipById(otherPos[2]);
 			Node gSrtNode = gRela.getStartNode();
 			gRela.delete();
@@ -75,6 +79,7 @@ public class PRelation implements Relationship{
 	public Node getEndNode() {
 		if(Neo4jDB.PTX == null) throw new NotInTransactionException();
 		refresh();
+		Neo4jDB.PTX.registerResource(pos[1]);
 		// return a wrapped version of the end node
 		return new PNode(rela.getEndNode());
 	}
@@ -88,6 +93,8 @@ public class PRelation implements Relationship{
 	public Node[] getNodes() {
 		if(Neo4jDB.PTX == null) throw new NotInTransactionException();
 		refresh();
+		Neo4jDB.PTX.registerResource(pos[1]);
+		
 		Node[] res = new Node[2];
 		res[0]= new PNode(rela.getStartNode());
 		res[1]=getEndNode();
@@ -98,6 +105,7 @@ public class PRelation implements Relationship{
 	public Node getOtherNode(Node node) {
 		if(Neo4jDB.PTX == null) throw new NotInTransactionException();
 		refresh();
+		Neo4jDB.PTX.registerResource(pos[1]);
 		
 		Node wSrtNode = new PNode(rela.getStartNode());
 		if(node.getId() == wSrtNode.getId()){
@@ -114,6 +122,8 @@ public class PRelation implements Relationship{
 	public Node getStartNode() {
 		if(Neo4jDB.PTX == null) throw new NotInTransactionException();
 		refresh();
+		Neo4jDB.PTX.registerResource(pos[1]);
+		
 		return new PNode(rela.getStartNode());
 	}
 
@@ -121,6 +131,8 @@ public class PRelation implements Relationship{
 	public RelationshipType getType() {
 		if(Neo4jDB.PTX == null) throw new NotInTransactionException();
 		refresh();
+		Neo4jDB.PTX.registerResource(pos[1]);
+		
 		return rela.getType();
 	}
 
@@ -128,6 +140,8 @@ public class PRelation implements Relationship{
 	public boolean isType(RelationshipType type) {
 		if(Neo4jDB.PTX == null) throw new NotInTransactionException();
 		refresh();
+		Neo4jDB.PTX.registerResource(pos[1]);
+		
 		return rela.isType(type);
 	}
 
@@ -135,6 +149,8 @@ public class PRelation implements Relationship{
 	public Object getProperty(String key) {
 		if(Neo4jDB.PTX == null) throw new NotInTransactionException();
 		refresh();
+		Neo4jDB.PTX.registerResource(pos[1]);
+		
 		return rela.getProperty(key);
 	}
 
@@ -142,6 +158,8 @@ public class PRelation implements Relationship{
 	public Object getProperty(String key, Object defaultValue) {
 		if(Neo4jDB.PTX == null) throw new NotInTransactionException();
 		refresh();
+		Neo4jDB.PTX.registerResource(pos[1]);
+		
 		return rela.getProperty(key, defaultValue);
 	}
 
@@ -149,6 +167,8 @@ public class PRelation implements Relationship{
 	public Iterable<String> getPropertyKeys() {
 		if(Neo4jDB.PTX == null) throw new NotInTransactionException();
 		refresh();
+		Neo4jDB.PTX.registerResource(pos[1]);
+		
 		return rela.getPropertyKeys();
 	}
 
@@ -157,6 +177,8 @@ public class PRelation implements Relationship{
 	public Iterable<Object> getPropertyValues() {
 		if(Neo4jDB.PTX == null) throw new NotInTransactionException();
 		refresh();
+		Neo4jDB.PTX.registerResource(pos[1]);
+		
 		return rela.getPropertyValues();
 	}
 
@@ -164,6 +186,8 @@ public class PRelation implements Relationship{
 	public boolean hasProperty(String key) {
 		if(Neo4jDB.PTX == null) throw new NotInTransactionException();
 		refresh();
+		Neo4jDB.PTX.registerResource(pos[1]);
+		
 		return rela.hasProperty(key);
 	}
 
@@ -171,6 +195,8 @@ public class PRelation implements Relationship{
 	public Object removeProperty(String key) {
 		if(Neo4jDB.PTX == null) throw new NotInTransactionException();
 		refresh();
+		Neo4jDB.PTX.registerResource(pos[1]);
+		
 		return rela.removeProperty(key);
 	}
 
@@ -178,11 +204,15 @@ public class PRelation implements Relationship{
 	public void setProperty(String key, Object value) {
 		if(Neo4jDB.PTX == null) throw new NotInTransactionException();
 		refresh();
+		Neo4jDB.PTX.registerResource(pos[1]);
+		
 		rela.setProperty(key, value);
 	}
 	
 	public long[] getPos(){
 		refresh();
+		Neo4jDB.PTX.registerResource(pos[1]);
+		
 		return pos.clone();
 	}
 }

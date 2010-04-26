@@ -45,17 +45,22 @@ public class PNode implements Node {
 			}
 			
 			pos = newPos;
+			Neo4jDB.PTX.registerResource(pos[1]);
 			node = Neo4jDB.INST.get(pos[1]).getNodeById(pos[2]);
 		}
 	}
 		
 	protected Node getWrappedNode() {
 		refresh();
+		Neo4jDB.PTX.registerResource(pos[1]);
+		
 		return node;
 	}
 	
 	public long[] getPos() {
 		refresh();
+		Neo4jDB.PTX.registerResource(pos[1]);
+		
 		return pos.clone();
 	}
 		
@@ -66,6 +71,7 @@ public class PNode implements Node {
 		// transaction
 		if(Neo4jDB.PTX==null) throw new NotInTransactionException();
 		refresh();
+		Neo4jDB.PTX.registerResource(pos[1]);
 		
 		Node otherNodeUW = ((PNode)otherNodeP).getWrappedNode();
 		
@@ -286,24 +292,24 @@ public class PNode implements Node {
 	@Override
 	public Object getProperty(String key) {
 		if(Neo4jDB.PTX==null) throw new NotInTransactionException();
-		Neo4jDB.PTX.registerResource(pos[1]);
 		refresh();
+		Neo4jDB.PTX.registerResource(pos[1]);
 		return node.getProperty(key);
 	}
 
 	@Override
 	public Object getProperty(String key, Object defaultValue) {
 		if(Neo4jDB.PTX==null) throw new NotInTransactionException();
-		Neo4jDB.PTX.registerResource(pos[1]);
 		refresh();
+		Neo4jDB.PTX.registerResource(pos[1]);
 		return node.getProperty(key, defaultValue);
 	}
 
 	@Override
 	public Iterable<String> getPropertyKeys() {
 		if(Neo4jDB.PTX==null) throw new NotInTransactionException();
-		Neo4jDB.PTX.registerResource(pos[1]);
 		refresh();
+		Neo4jDB.PTX.registerResource(pos[1]);
 		return node.getPropertyKeys();
 	}
 
@@ -311,32 +317,32 @@ public class PNode implements Node {
 	@Deprecated
 	public Iterable<Object> getPropertyValues() {
 		if(Neo4jDB.PTX==null) throw new NotInTransactionException();
-		Neo4jDB.PTX.registerResource(pos[1]);
 		refresh();
+		Neo4jDB.PTX.registerResource(pos[1]);
 		return node.getPropertyValues();
 	}
 
 	@Override
 	public boolean hasProperty(String key) {
 		if(Neo4jDB.PTX==null) throw new NotInTransactionException();
-		Neo4jDB.PTX.registerResource(pos[1]);
 		refresh();
+		Neo4jDB.PTX.registerResource(pos[1]);
 		return node.hasProperty(key);
 	}
 
 	@Override
 	public Object removeProperty(String key) {
 		if(Neo4jDB.PTX==null) throw new NotInTransactionException();
-		Neo4jDB.PTX.registerResource(pos[1]);
 		refresh();
+		Neo4jDB.PTX.registerResource(pos[1]);
 		return node.removeProperty(key);
 	}
 
 	@Override
 	public void setProperty(String key, Object value) {
 		if(Neo4jDB.PTX==null) throw new NotInTransactionException();
-		Neo4jDB.PTX.registerResource(pos[1]);
 		refresh();
+		Neo4jDB.PTX.registerResource(pos[1]);
 		node.setProperty(key, value);
 	}
 	
