@@ -2,6 +2,8 @@ package p_graph_service.core;
 
 import java.io.File;
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
@@ -710,87 +712,137 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 
 		return new PNode(n);
 	}
-
+	
 	@Override
 	public void createDistribution(String db) {
+		ArrayList<Long> nodeIDs = new ArrayList<Long>();
 		GraphDatabaseService dbS = new EmbeddedGraphDatabase(db);
-
+		
 		// load all instance ids
 		HashSet<Long> instIDs = new HashSet<Long>();
 		for (Long instID : getInstancesIDs()) {
 			instIDs.add(instID);
 		}
-
+		
+		
+		System.out.println(new Date(System.currentTimeMillis())+" count nodes");
+		
+		// counts all nodes
 		Transaction tx = dbS.beginTx();
 		try {
-			// my own transaction
-			Transaction pTx = beginTx();
-			try {
-				// copy all nodes
-				for (Node n : dbS.getAllNodes()) {
-					// ignore reference node
-					if (n.getId() == 0)
-						continue;
-
-					long targetInst = (Byte) n.getProperty("color");
-					long gid = Long.parseLong((String) n.getProperty("name"));
-
-					// create instance if not yet existing
-					if (!instIDs.contains(targetInst)) {
-						addInstance(targetInst);
-						instIDs.add(targetInst);
-					}
-					Node newN = createNodeOn(gid, targetInst);
-
-					for (String key : n.getPropertyKeys()) {
-						newN.setProperty(key, n.getProperty(key));
-					}
-				}
-				pTx.success();
-			} finally {
-				pTx.finish();
-			}
-
-			// copy all relations
-			for (Node n : dbS.getAllNodes()) {
+			for(Node n : dbS.getAllNodes()){
 				// ignore reference node
 				if (n.getId() == 0)
 					continue;
-
-				pTx = beginTx();
-				try {
-
-					long curN = Long.parseLong((String) n.getProperty("name"));
-					Node srtNode = getNodeById(curN);
-
-					for (Relationship rs : n
-							.getRelationships(Direction.OUTGOING)) {
-
-						long endNodeGID = Long.parseLong((String) rs
-								.getEndNode().getProperty("name"));
-						Node endNode = getNodeById(endNodeGID);
-						Relationship newRs = srtNode.createRelationshipTo(
-								endNode, rs.getType());
-						// set the GID to the relationship LID
-						newRs.setProperty(Neo4jDB.rGID, rs.getId());
-
-						// copy all properties
-						for (String key : rs.getPropertyKeys()) {
-							newRs.setProperty(key, rs.getProperty(key));
-						}
-					}
-					pTx.success();
-				} finally {
-					pTx.finish();
-				}
+				
+				nodeIDs.add(n.getId());
 			}
 			tx.success();
 		} finally {
 			tx.finish();
 		}
+		
+		int nodesInSystem = nodeIDs.size();
+		int nodeCount;
+		int stepSize = 1000;
+		int stepCount;
+		
+		
+		Iterator<Long>idIter;
+		
+		System.out.println(new Date(System.currentTimeMillis())+ " creating nodes");
+		
+		nodeCount = 0;
+		stepCount = 0;
+		idIter = nodeIDs.iterator();
+		while(idIter.hasNext()){
+			tx = dbS.beginTx();
+			try {
+				// my own transaction
+				Transaction pTx = beginTx();
+				try {
+					while(idIter.hasNext() && stepCount < stepSize){
+						Node n = dbS.getNodeById(idIter.next());
+						
+						long targetInst = (Byte) n.getProperty("_color");
+						long gid = (Long) n.getProperty("_n_gid");
 
+						// create instance if not yet existing
+						if (!instIDs.contains(targetInst)) {
+							addInstance(targetInst);
+							instIDs.add(targetInst);
+						}
+						Node newN = createNodeOn(gid, targetInst);
+
+						for (String key : n.getPropertyKeys()) {
+							newN.setProperty(key, n.getProperty(key));
+						}
+						
+						stepCount++;
+						nodeCount++;
+					}
+					stepCount = 0;
+					System.out.println(new Date(System.currentTimeMillis())+" " + nodeCount+ " of "+ nodesInSystem + " created");
+					pTx.success();
+				} finally {
+					pTx.finish();
+				}	
+				tx.success();
+			} finally {
+				tx.finish();
+			}
+		}
+		
+		System.out.println(new Date(System.currentTimeMillis())+" create relationships");
+		nodeCount = 0;
+		stepCount = 0;
+		idIter = nodeIDs.iterator();
+		while(idIter.hasNext()){
+			tx = dbS.beginTx();
+			try {
+				// my own transaction
+				Transaction pTx = beginTx();
+				try {
+					while(idIter.hasNext() && stepCount < stepSize){
+						Node n = dbS.getNodeById(idIter.next());
+						
+						long curN = (Long) n.getProperty("_n_gid");
+						Node srtNode = getNodeById(curN);
+
+						for (Relationship rs : n
+								.getRelationships(Direction.OUTGOING)) {
+
+							long endNodeGID = (Long) rs
+									.getEndNode().getProperty("_n_gid");
+							Node endNode = getNodeById(endNodeGID);
+							Relationship newRs = srtNode.createRelationshipTo(
+									endNode, rs.getType());
+							// set the GID to the relationship LID 
+							//Does not work anway
+							//newRs.setProperty(Neo4jDB.rGID, rs.getProperty("_r_gid"));
+
+							// copy all properties
+							for (String key : rs.getPropertyKeys()) {
+								newRs.setProperty(key, rs.getProperty(key));
+							}
+						}						
+						stepCount++;
+						nodeCount++;
+					}
+					stepCount = 0;
+					System.out.println(new Date(System.currentTimeMillis())+" relationship for " +nodeCount+ " of "+ nodesInSystem + " created");
+					pTx.success();
+				} finally {
+					pTx.finish();
+				}	
+				tx.success();
+			} finally {
+				tx.finish();
+			}
+		}
+		System.out.println("done");
 		dbS.shutdown();
-
+	
 	}
 
 	@Override
