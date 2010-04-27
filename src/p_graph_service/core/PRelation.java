@@ -8,6 +8,15 @@ import org.neo4j.graphdb.RelationshipType;
 
 
 public class PRelation implements Relationship{
+	@Override
+	public boolean equals(Object obj) {
+		if(obj instanceof PRelation){
+			PRelation rel = (PRelation) obj;
+			if(rel.getId() == GID)return true;
+		}
+		return false;
+	}
+
 	private final long GID;
 	private long[] pos;
 	private Relationship rela;

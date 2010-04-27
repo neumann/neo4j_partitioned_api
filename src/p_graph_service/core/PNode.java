@@ -173,6 +173,15 @@ public class PNode implements Node {
 	}
 
 	@Override
+	public boolean equals(Object obj) {
+		if(obj instanceof PNode){
+			PNode pn = (PNode)obj;
+			if(pn.getId() == GID)return true;
+		}
+		return false;
+	}
+
+	@Override
 	public void delete() {
 		if(Neo4jDB.PTX==null) throw new NotInTransactionException();
 		refresh();
