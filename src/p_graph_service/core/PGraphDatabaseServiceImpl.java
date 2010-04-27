@@ -571,7 +571,7 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 		if (adr[0] == getServiceID() && Neo4jDB.INST.containsKey(adr[1])) {
 			// create transaction if not yet existing
 			Neo4jDB.PTX.registerResource(adr[1]);
-			return Neo4jDB.INST.get(adr[1]).getRelationshipById(adr[2]);
+			return new PRelation(Neo4jDB.INST.get(adr[1]).getRelationshipById(adr[2]));
 		}
 		return null;
 	}
