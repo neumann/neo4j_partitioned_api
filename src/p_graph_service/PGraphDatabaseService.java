@@ -1,5 +1,7 @@
 package p_graph_service;
 
+import java.util.HashMap;
+
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Node;
 
@@ -17,6 +19,8 @@ public interface PGraphDatabaseService extends GraphDatabaseService {
 	public long getNumNodesOn(long id);
 	public long getNumRelationsOn(long id);
 	public long getTrafficOn(long id);
+	public HashMap<Long, Long> getTrafficRecordFor(long instaceID);
+	public void resetTrafficRecords();
 	
 	
 	// policy used when creating a node without specifying the target position
@@ -34,8 +38,4 @@ public interface PGraphDatabaseService extends GraphDatabaseService {
 	public Node createNodeOn(long instanceID);
 	public Node createNodeOn(long GID, long instanceID);
 	public void moveNodes(Iterable<Node> nodes, long instanceID);
-
-	// takes a normal neo4j instance and forms it into a distributed version
-	// nodes have to have a color attribute
-	public void createDistribution(String db);
 }

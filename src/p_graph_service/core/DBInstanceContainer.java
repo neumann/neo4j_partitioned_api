@@ -1,6 +1,14 @@
 package p_graph_service.core;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.OutputStream;
 import java.io.Serializable;
+import java.util.HashMap;
 import java.util.Map;
 
 import org.neo4j.graphdb.Direction;
@@ -18,6 +26,7 @@ import org.neo4j.kernel.EmbeddedGraphDatabase;
  */
 public class DBInstanceContainer implements GraphDatabaseService {
 	private final EmbeddedGraphDatabase db;
+	private final static String storFileName  = "MetaInfo";
 	
 	// id of this instance
 	private final long id;
@@ -25,15 +34,29 @@ public class DBInstanceContainer implements GraphDatabaseService {
 		return id;
 	}
 	
-	// internal information on the DB
+	// static information on instance
 	private long numNodes;
 	private long numRelas;
+	 
+	// dynamic information on instance
 	private long traffic;
+	private HashMap<Long, Long> interTrafficMap;
 	
 	// traffic is define by: create Node, create Relationship, get Node, get Relationship,  delete Node, delete Relationship
 	public void logTraffic(){
 		traffic++;
 	}
+	
+	private void logExtTraffic(long instanceID){
+		if(interTrafficMap.containsKey(interTrafficMap)){
+			long count = interTrafficMap.get(instanceID);
+			count ++;
+			interTrafficMap.put(instanceID, count);
+		}else{
+			interTrafficMap.put(instanceID, new Long(1));
+		}
+	}
+	
 	public void logAddNode(){
 		numNodes++;
 	}
@@ -49,42 +72,74 @@ public class DBInstanceContainer implements GraphDatabaseService {
 		numRelas--;
 	}
 	
-	
 	public long getNumOfNodes(){
 		return numNodes;
 	}
+	
 	public long getNumOfRelas(){
 		return numRelas;
 	}
+	
+	public void resetTraffic(){
+		this.traffic = 0;
+		this.interTrafficMap.clear();
+	}
+	
+	@SuppressWarnings("unchecked")
+	public HashMap<Long, Long> getTrafficRecord(){
+		return (HashMap<Long, Long>) interTrafficMap.clone();
+	}
+	
 	public long getTraffic(){
 		return traffic;
 	}
 	
+	@SuppressWarnings("unchecked")
 	public DBInstanceContainer(String path, long id) {
 		this.id = id;
 		this.db = new EmbeddedGraphDatabase(path);
-		this.numNodes = 0;
-		this.traffic = 0;
-		this.numRelas = 0;
 		
-		// count relationships and nodes (ghosts and entities without GID are excluded)
-		Transaction tx = beginTx();
+		// load stored meta information
 		try {
-			for(Node n :  getAllNodes()){
-				if(n.hasProperty(Neo4jDB.nGID) && !n.hasProperty(Neo4jDB.IsGhost)){
-					logAddNode();
-					for(Relationship r : n.getRelationships(Direction.OUTGOING)){
-						if(r.hasProperty(Neo4jDB.rGID) && !r.hasProperty(Neo4jDB.IsGhost)){
-							logAddRela();
+			InputStream fips = new FileInputStream(new File(path+"/"+storFileName));
+			ObjectInputStream oips = new ObjectInputStream(fips);
+			
+			this.numNodes = oips.readLong();
+			this.traffic = oips.readLong();
+			this.numRelas = oips.readLong();
+			this.interTrafficMap = (HashMap<Long, Long>) oips.readObject();
+		
+			oips.close();
+			fips.close();	
+		} catch (Exception e) {
+			// recalculate meta information if not found
+			
+			this.numNodes = 0;
+			this.traffic = 0;
+			this.numRelas = 0;
+			this.interTrafficMap = new HashMap<Long, Long>();
+			
+			// count relationships and nodes (ghosts and entities without GID are excluded)
+			Transaction tx = beginTx();
+			try {
+				for(Node n :  getAllNodes()){
+					if(n.hasProperty(Neo4jDB.nGID) && !n.hasProperty(Neo4jDB.IsGhost)){
+						logAddNode();
+						for(Relationship r : n.getRelationships(Direction.OUTGOING)){
+							if(r.hasProperty(Neo4jDB.rGID) && !r.hasProperty(Neo4jDB.IsGhost)){
+								logAddRela();
+							}
 						}
 					}
 				}
+				
+				tx.success();
+			} finally {
+				tx.finish();
 			}
-			
-			tx.success();
-		} finally {
-			tx.finish();
 		}
+		
+		
 	}
 	
 	@Override
@@ -129,7 +184,16 @@ public class DBInstanceContainer implements GraphDatabaseService {
 	@Override
 	public Relationship getRelationshipById(long id) {
 		logTraffic();
-		return db.getRelationshipById(id);
+		Relationship rs = db.getRelationshipById(id);
+		if(rs.hasProperty(Neo4jDB.IsHalf)){
+			long[] adr = (long[]) rs.getProperty(Neo4jDB.IsHalf);
+			logExtTraffic(adr[1]);
+		}
+		if(rs.hasProperty(Neo4jDB.IsGhost)){
+			long[] adr = (long[]) rs.getProperty(Neo4jDB.IsGhost);
+			logExtTraffic(adr[1]);
+		}
+		return rs;
 	}
 
 	@Override
@@ -139,6 +203,23 @@ public class DBInstanceContainer implements GraphDatabaseService {
 
 	@Override
 	public void shutdown() {
+		// store meta information
+		try{
+			OutputStream fops = new FileOutputStream(new File(db.getStoreDir()+"/"+storFileName));
+			ObjectOutputStream oops = new ObjectOutputStream(fops);
+			oops.writeLong(numNodes);
+			oops.writeLong(traffic);
+			oops.writeLong(numRelas);
+			oops.writeObject(interTrafficMap);
+		
+			oops.close();
+			fops.close();
+		}
+		catch (Exception e) {
+			// TODO: handle exception
+		}
+		
+			
 		db.shutdown();
 
 	}

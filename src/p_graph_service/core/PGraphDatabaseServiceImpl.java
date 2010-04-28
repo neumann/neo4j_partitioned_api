@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
@@ -713,7 +714,7 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 		return new PNode(n);
 	}
 	
-	@Override
+	//TODO remove
 	public void createDistribution(String db) {
 		ArrayList<Long> nodeIDs = new ArrayList<Long>();
 		GraphDatabaseService dbS = new EmbeddedGraphDatabase(db);
@@ -894,6 +895,18 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 	@Override
 	public long getTrafficOn(long id) {
 		return Neo4jDB.INST.get(id).getTraffic();
+	}
+
+	@Override
+	public HashMap<Long, Long> getTrafficRecordFor(long instaceID) {
+		return Neo4jDB.INST.get(instaceID).getTrafficRecord();
+	}
+
+	@Override
+	public void resetTrafficRecords() {
+		for(long id : getInstancesIDs()){
+			Neo4jDB.INST.get(id).resetTraffic();
+		}
 	}
 
 }
