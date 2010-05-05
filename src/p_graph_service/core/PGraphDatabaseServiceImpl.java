@@ -34,13 +34,6 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 		this.placementPol = new RandomPlacement();
 
 		Neo4jDB.startup(path);
-
-		// create reference node if not existing 
-		if( Neo4jDB.INDEX.findNode(0)== null && !Neo4jDB.INST.isEmpty()){ 
-			long instID = this.getInstancesIDs()[0];
-			this.createNodeOn(0, instID); 
-		}
-
 	}
 
 	@Override
@@ -558,6 +551,12 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 	public Node getReferenceNode() {
 		if (Neo4jDB.PTX == null)
 			throw new NotInTransactionException();
+
+		// create reference node if not existing 
+		if( Neo4jDB.INDEX.findNode(0)== null && !Neo4jDB.INST.isEmpty()){ 
+			long instID = this.getInstancesIDs()[0];
+			this.createNodeOn(0, instID); 
+		}
 		return this.getNodeById(0);
 	}
 
