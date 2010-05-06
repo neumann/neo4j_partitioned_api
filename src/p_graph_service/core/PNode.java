@@ -5,6 +5,7 @@ import org.neo4j.graphdb.Direction;
 import org.neo4j.graphdb.Node;
 
 
+import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.NotInTransactionException;
 import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.RelationshipType;
@@ -14,6 +15,7 @@ import org.neo4j.graphdb.Traverser;
 import org.neo4j.graphdb.Traverser.Order;
 
 
+@SuppressWarnings("deprecation")
 public class PNode implements Node {
 	private final long GID;
 	private long[] pos;
@@ -270,7 +272,9 @@ public class PNode implements Node {
 		return hasRelationship(type, dir);
 	}
 
+	
 	@Override
+	@Deprecated
 	public Traverser traverse(Order traversalOrder,
 			StopEvaluator stopEvaluator,
 			ReturnableEvaluator returnableEvaluator,
@@ -280,6 +284,7 @@ public class PNode implements Node {
 	}
 
 	@Override
+	@Deprecated
 	public Traverser traverse(Order traversalOrder,
 			StopEvaluator stopEvaluator,
 			ReturnableEvaluator returnableEvaluator,
@@ -289,6 +294,7 @@ public class PNode implements Node {
 	}
 
 	@Override
+	@Deprecated
 	public Traverser traverse(Order traversalOrder,
 			StopEvaluator stopEvaluator,
 			ReturnableEvaluator returnableEvaluator,
@@ -393,5 +399,11 @@ public class PNode implements Node {
 			throw new UnsupportedOperationException(
 					"JoinedIterator.remove() not implemented");
 		}
+	}
+
+	@Override
+	public GraphDatabaseService getGraphDatabase() {
+		throw new UnsupportedOperationException(
+		"Node.getGraphDatabase() not implemented");
 	}
 }

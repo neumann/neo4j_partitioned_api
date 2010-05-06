@@ -1,5 +1,6 @@
 package p_graph_service.core;
 
+import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.NotFoundException;
 import org.neo4j.graphdb.NotInTransactionException;
@@ -223,5 +224,11 @@ public class PRelation implements Relationship{
 		Neo4jDB.PTX.registerResource(pos[1]);
 		
 		return pos.clone();
+	}
+
+	@Override
+	public GraphDatabaseService getGraphDatabase() {
+		throw new UnsupportedOperationException(
+		"Node.getGraphDatabase() not implemented");
 	}
 }

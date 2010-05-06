@@ -16,6 +16,8 @@ import org.neo4j.graphdb.NotInTransactionException;
 import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.RelationshipType;
 import org.neo4j.graphdb.Transaction;
+import org.neo4j.graphdb.event.KernelEventHandler;
+import org.neo4j.graphdb.event.TransactionEventHandler;
 
 import p_graph_service.PGraphDatabaseService;
 import p_graph_service.PlacementPolicy;
@@ -29,11 +31,14 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 	public PGraphDatabaseServiceImpl(String path, long id) {
 
 		this.SERVICE_ID = id;
-
+		
+		Neo4jDB.startup(path);
+	
 		// TODO put policy to a setting file
 		this.placementPol = new RandomPlacement();
-
-		Neo4jDB.startup(path);
+		for (long k: Neo4jDB.INST.keySet()) {
+			placementPol.addInstance(k, Neo4jDB.INST.get(k));
+		}
 	}
 
 	@Override
@@ -693,7 +698,6 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 		if (Neo4jDB.PTX == null)
 			throw new NotInTransactionException();
 		DBInstanceContainer inst = Neo4jDB.INST.get(instanceID);
-
 		// create transaction if not existing
 		Neo4jDB.PTX.registerResource(instanceID);
 
@@ -771,6 +775,29 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 		for(long id : getInstancesIDs()){
 			Neo4jDB.INST.get(id).resetTraffic();
 		}
+	}
+
+	@Override
+	public KernelEventHandler registerKernelEventHandler(KernelEventHandler arg0) {
+		throw new UnsupportedOperationException("Node.getGraphDatabase() not implemented");
+	}
+
+	@Override
+	public <T> TransactionEventHandler<T> registerTransactionEventHandler(
+			TransactionEventHandler<T> arg0) {
+		throw new UnsupportedOperationException("Node.getGraphDatabase() not implemented");
+	}
+
+	@Override
+	public KernelEventHandler unregisterKernelEventHandler(
+			KernelEventHandler arg0) {
+		throw new UnsupportedOperationException("Node.getGraphDatabase() not implemented");
+	}
+
+	@Override
+	public <T> TransactionEventHandler<T> unregisterTransactionEventHandler(
+			TransactionEventHandler<T> arg0) {
+		throw new UnsupportedOperationException("Node.getGraphDatabase() not implemented");
 	}
 
 }

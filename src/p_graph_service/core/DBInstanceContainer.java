@@ -17,6 +17,8 @@ import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.RelationshipType;
 import org.neo4j.graphdb.Transaction;
+import org.neo4j.graphdb.event.KernelEventHandler;
+import org.neo4j.graphdb.event.TransactionEventHandler;
 import org.neo4j.kernel.EmbeddedGraphDatabase;
 
 /**
@@ -216,12 +218,35 @@ public class DBInstanceContainer implements GraphDatabaseService {
 			fops.close();
 		}
 		catch (Exception e) {
-			// TODO: handle exception
+			// nothing to do there
 		}
 		
 			
 		db.shutdown();
 
+	}
+
+	@Override
+	public KernelEventHandler registerKernelEventHandler(KernelEventHandler arg0) {
+		return db.registerKernelEventHandler(arg0);
+	}
+
+	@Override
+	public <T> TransactionEventHandler<T> registerTransactionEventHandler(
+			TransactionEventHandler<T> arg0) {
+		return db.registerTransactionEventHandler(arg0);
+	}
+
+	@Override
+	public KernelEventHandler unregisterKernelEventHandler(
+			KernelEventHandler arg0) {
+		return db.unregisterKernelEventHandler(arg0);
+	}
+
+	@Override
+	public <T> TransactionEventHandler<T> unregisterTransactionEventHandler(
+			TransactionEventHandler<T> arg0) {
+		return db.unregisterTransactionEventHandler(arg0);
 	}
 
 }
