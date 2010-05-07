@@ -800,4 +800,9 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 		throw new UnsupportedOperationException("Node.getGraphDatabase() not implemented");
 	}
 
+	@Override
+	public InstanceInfo getInstanceInfoFor(long id) {
+		return Neo4jDB.INST.get(id).getInfo();
+	}
+
 }

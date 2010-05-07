@@ -5,6 +5,8 @@ import java.util.HashMap;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Node;
 
+import p_graph_service.core.InstanceInfo;
+
 public interface PGraphDatabaseService extends GraphDatabaseService {
 	// this service identifier
 	public long getServiceID();
@@ -21,7 +23,7 @@ public interface PGraphDatabaseService extends GraphDatabaseService {
 	public long getTrafficOn(long id);
 	public HashMap<Long, Long> getTrafficRecordFor(long instaceID);
 	public void resetTrafficRecords();
-	
+	public InstanceInfo getInstanceInfoFor(long id);
 	
 	// policy used when creating a node without specifying the target position
 	public PlacementPolicy getPlacementPolicy();

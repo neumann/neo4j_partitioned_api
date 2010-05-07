@@ -36,13 +36,16 @@ public class DBInstanceContainer implements GraphDatabaseService {
 		return id;
 	}
 	
+	private InstanceInfo info;
+	
 	// static information on instance
 	private long numNodes;
 	private long numRelas;
 	 
 	// dynamic information on instance
 	private long traffic;
-	private HashMap<Long, Long> interTrafficMap;
+	private long intraHop;
+	private HashMap<Long, Long> interHopMap;
 	
 	// traffic is define by: create Node, create Relationship, get Node, get Relationship,  delete Node, delete Relationship
 	public void logTraffic(){
@@ -50,12 +53,12 @@ public class DBInstanceContainer implements GraphDatabaseService {
 	}
 	
 	private void logExtTraffic(long instanceID){
-		if(interTrafficMap.containsKey(interTrafficMap)){
-			long count = interTrafficMap.get(instanceID);
+		if(interHopMap.containsKey(interHopMap)){
+			long count = interHopMap.get(instanceID);
 			count ++;
-			interTrafficMap.put(instanceID, count);
+			interHopMap.put(instanceID, count);
 		}else{
-			interTrafficMap.put(instanceID, new Long(1));
+			interHopMap.put(instanceID, new Long(1));
 		}
 	}
 	
@@ -84,12 +87,13 @@ public class DBInstanceContainer implements GraphDatabaseService {
 	
 	public void resetTraffic(){
 		this.traffic = 0;
-		this.interTrafficMap.clear();
+		this.intraHop = 0;
+		this.interHopMap.clear();
 	}
 	
 	@SuppressWarnings("unchecked")
 	public HashMap<Long, Long> getTrafficRecord(){
-		return (HashMap<Long, Long>) interTrafficMap.clone();
+		return (HashMap<Long, Long>) interHopMap.clone();
 	}
 	
 	public long getTraffic(){
@@ -100,6 +104,7 @@ public class DBInstanceContainer implements GraphDatabaseService {
 	public DBInstanceContainer(String path, long id) {
 		this.id = id;
 		this.db = new EmbeddedGraphDatabase(path);
+		this.info = new InstanceInfo();
 		
 		// load stored meta information
 		try {
@@ -109,7 +114,7 @@ public class DBInstanceContainer implements GraphDatabaseService {
 			this.numNodes = oips.readLong();
 			this.traffic = oips.readLong();
 			this.numRelas = oips.readLong();
-			this.interTrafficMap = (HashMap<Long, Long>) oips.readObject();
+			this.interHopMap = (HashMap<Long, Long>) oips.readObject();
 		
 			oips.close();
 			fips.close();	
@@ -119,7 +124,8 @@ public class DBInstanceContainer implements GraphDatabaseService {
 			this.numNodes = 0;
 			this.traffic = 0;
 			this.numRelas = 0;
-			this.interTrafficMap = new HashMap<Long, Long>();
+			this.intraHop =0;
+			this.interHopMap = new HashMap<Long, Long>();
 			
 			// count relationships and nodes (ghosts and entities without GID are excluded)
 			Transaction tx = beginTx();
@@ -187,6 +193,7 @@ public class DBInstanceContainer implements GraphDatabaseService {
 	public Relationship getRelationshipById(long id) {
 		logTraffic();
 		Relationship rs = db.getRelationshipById(id);
+		intraHop ++;
 		if(rs.hasProperty(Neo4jDB.IsHalf)){
 			long[] adr = (long[]) rs.getProperty(Neo4jDB.IsHalf);
 			logExtTraffic(adr[1]);
@@ -212,7 +219,7 @@ public class DBInstanceContainer implements GraphDatabaseService {
 			oops.writeLong(numNodes);
 			oops.writeLong(traffic);
 			oops.writeLong(numRelas);
-			oops.writeObject(interTrafficMap);
+			oops.writeObject(interHopMap);
 		
 			oops.close();
 			fops.close();
@@ -224,6 +231,10 @@ public class DBInstanceContainer implements GraphDatabaseService {
 			
 		db.shutdown();
 
+	}
+	
+	public InstanceInfo getInfo(){
+		return (InstanceInfo) info.clone();
 	}
 
 	@Override
