@@ -16,7 +16,7 @@ public class PTransaction implements Transaction {
 		if(!tParts.containsKey(id)){
 			
 //			System.out.println(tParts);
-			System.out.println(Neo4jDB.INST);
+//			System.out.println(Neo4jDB.INST);
 //			System.out.println(id);
 			tParts.put(id, Neo4jDB.INST.get(id).beginTx());
 		}
