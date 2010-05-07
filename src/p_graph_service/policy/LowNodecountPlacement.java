@@ -23,7 +23,7 @@ public class LowNodecountPlacement implements PlacementPolicy {
 		long value = Long.MAX_VALUE;
 		
 		for(long key :inst.keySet()){
-			long numNodes = inst.get(key).getNumOfNodes();
+			long numNodes = inst.get(key).getInfo().numNodes;
 			if(numNodes < value){
 				value = numNodes;
 				posLow = key;

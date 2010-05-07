@@ -8,7 +8,6 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.io.Serializable;
-import java.util.HashMap;
 import java.util.Map;
 
 import org.neo4j.graphdb.Direction;
@@ -38,69 +37,40 @@ public class DBInstanceContainer implements GraphDatabaseService {
 	
 	private InstanceInfo info;
 	
-	// static information on instance
-	private long numNodes;
-	private long numRelas;
-	 
-	// dynamic information on instance
-	private long traffic;
-	private long intraHop;
-	private HashMap<Long, Long> interHopMap;
-	
 	// traffic is define by: create Node, create Relationship, get Node, get Relationship,  delete Node, delete Relationship
 	public void logTraffic(){
-		traffic++;
+		info.traffic++;
 	}
 	
 	private void logExtTraffic(long instanceID){
-		if(interHopMap.containsKey(interHopMap)){
-			long count = interHopMap.get(instanceID);
+		if(info.interHopMap.containsKey(info.interHopMap)){
+			long count = info.interHopMap.get(instanceID);
 			count ++;
-			interHopMap.put(instanceID, count);
+			info.interHopMap.put(instanceID, count);
 		}else{
-			interHopMap.put(instanceID, new Long(1));
+			info.interHopMap.put(instanceID, new Long(1));
 		}
 	}
 	
 	public void logAddNode(){
-		numNodes++;
+		info.numNodes++;
 	}
 	public void logRemNode(){
-		numNodes--;
+		info.numNodes--;
 	}
 	
 	public void logAddRela(){
-		numRelas++;
+		info.numRelas++;
 	}
 	
 	public void logRemRela(){
-		numRelas--;
-	}
-	
-	public long getNumOfNodes(){
-		return numNodes;
-	}
-	
-	public long getNumOfRelas(){
-		return numRelas;
+		info.numRelas--;
 	}
 	
 	public void resetTraffic(){
-		this.traffic = 0;
-		this.intraHop = 0;
-		this.interHopMap.clear();
+		info.resetTraffic();
 	}
-	
-	@SuppressWarnings("unchecked")
-	public HashMap<Long, Long> getTrafficRecord(){
-		return (HashMap<Long, Long>) interHopMap.clone();
-	}
-	
-	public long getTraffic(){
-		return traffic;
-	}
-	
-	@SuppressWarnings("unchecked")
+		
 	public DBInstanceContainer(String path, long id) {
 		this.id = id;
 		this.db = new EmbeddedGraphDatabase(path);
@@ -111,21 +81,13 @@ public class DBInstanceContainer implements GraphDatabaseService {
 			InputStream fips = new FileInputStream(new File(path+"/"+storFileName));
 			ObjectInputStream oips = new ObjectInputStream(fips);
 			
-			this.numNodes = oips.readLong();
-			this.traffic = oips.readLong();
-			this.numRelas = oips.readLong();
-			this.interHopMap = (HashMap<Long, Long>) oips.readObject();
+			this.info = (InstanceInfo) oips.readObject();
 		
 			oips.close();
 			fips.close();	
 		} catch (Exception e) {
 			// recalculate meta information if not found
-			
-			this.numNodes = 0;
-			this.traffic = 0;
-			this.numRelas = 0;
-			this.intraHop =0;
-			this.interHopMap = new HashMap<Long, Long>();
+			this.info = new InstanceInfo();
 			
 			// count relationships and nodes (ghosts and entities without GID are excluded)
 			Transaction tx = beginTx();
@@ -173,7 +135,7 @@ public class DBInstanceContainer implements GraphDatabaseService {
 
 	@Override
 	public Iterable<Node> getAllNodes() {
-		traffic += numNodes;
+		info.traffic += info.numNodes;
 		return db.getAllNodes();
 	}
 
@@ -193,7 +155,7 @@ public class DBInstanceContainer implements GraphDatabaseService {
 	public Relationship getRelationshipById(long id) {
 		logTraffic();
 		Relationship rs = db.getRelationshipById(id);
-		intraHop ++;
+		info.intraHop ++;
 		if(rs.hasProperty(Neo4jDB.IsHalf)){
 			long[] adr = (long[]) rs.getProperty(Neo4jDB.IsHalf);
 			logExtTraffic(adr[1]);
@@ -216,11 +178,7 @@ public class DBInstanceContainer implements GraphDatabaseService {
 		try{
 			OutputStream fops = new FileOutputStream(new File(db.getStoreDir()+"/"+storFileName));
 			ObjectOutputStream oops = new ObjectOutputStream(fops);
-			oops.writeLong(numNodes);
-			oops.writeLong(traffic);
-			oops.writeLong(numRelas);
-			oops.writeObject(interHopMap);
-		
+			oops.writeObject(info);
 			oops.close();
 			fops.close();
 		}
@@ -228,13 +186,11 @@ public class DBInstanceContainer implements GraphDatabaseService {
 			// nothing to do there
 		}
 		
-			
 		db.shutdown();
-
 	}
 	
 	public InstanceInfo getInfo(){
-		return (InstanceInfo) info.clone();
+		return (InstanceInfo) info.takeSnapshot();
 	}
 
 	@Override

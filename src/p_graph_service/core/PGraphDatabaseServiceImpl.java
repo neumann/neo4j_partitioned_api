@@ -3,7 +3,6 @@ package p_graph_service.core;
 import java.io.File;
 import java.io.Serializable;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
@@ -59,7 +58,7 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 	@Override
 	public boolean removeInstance(long id) {
 		// TODO not tested will screw up reference node
-		if (Neo4jDB.INST.get(id).getNumOfNodes() == 0) {
+		if (Neo4jDB.INST.get(id).getInfo().numNodes == 0) {
 			Neo4jDB.INST.remove(id);
 			return true;
 		}
@@ -730,52 +729,7 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 		Neo4jDB.INST.put(id, instContainer);
 		placementPol.addInstance(id, instContainer);
 		return true;
-	}
-
-	@Override
-	public long getNumNodes() {
-		long res = 0;
-		for (long key : Neo4jDB.INST.keySet()) {
-			res += Neo4jDB.INST.get(key).getNumOfNodes();
-		}
-		return res;
-	}
-
-	@Override
-	public long getNumNodesOn(long id) {
-		return Neo4jDB.INST.get(id).getNumOfNodes();
-	}
-
-	@Override
-	public long getNumRelations() {
-		long res = 0;
-		for (long key : Neo4jDB.INST.keySet()) {
-			res += Neo4jDB.INST.get(key).getNumOfRelas();
-		}
-		return res;
-	}
-
-	@Override
-	public long getNumRelationsOn(long id) {
-		return Neo4jDB.INST.get(id).getNumOfRelas();
-	}
-
-	@Override
-	public long getTrafficOn(long id) {
-		return Neo4jDB.INST.get(id).getTraffic();
-	}
-
-	@Override
-	public HashMap<Long, Long> getTrafficRecordFor(long instaceID) {
-		return Neo4jDB.INST.get(instaceID).getTrafficRecord();
-	}
-
-	@Override
-	public void resetTrafficRecords() {
-		for(long id : getInstancesIDs()){
-			Neo4jDB.INST.get(id).resetTraffic();
-		}
-	}
+	}	
 
 	@Override
 	public KernelEventHandler registerKernelEventHandler(KernelEventHandler arg0) {
@@ -803,6 +757,18 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 	@Override
 	public InstanceInfo getInstanceInfoFor(long id) {
 		return Neo4jDB.INST.get(id).getInfo();
+	}
+
+	@Override
+	public void resetLogging() {
+		for(DBInstanceContainer cont : Neo4jDB.INST.values()){
+			cont.resetTraffic();
+		}
+	}
+
+	@Override
+	public void resetLoggingOn(long id) {
+		Neo4jDB.INST.get(id).resetTraffic();
 	}
 
 }
