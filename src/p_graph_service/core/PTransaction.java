@@ -15,9 +15,9 @@ public class PTransaction implements Transaction {
 	public void registerResource(long id){
 		if(!tParts.containsKey(id)){
 			
-			System.out.println(tParts);
+//			System.out.println(tParts);
 			System.out.println(Neo4jDB.INST);
-			System.out.println(id);
+//			System.out.println(id);
 			tParts.put(id, Neo4jDB.INST.get(id).beginTx());
 		}
 	}
