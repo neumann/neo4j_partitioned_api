@@ -8,16 +8,7 @@ import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.RelationshipType;
 
 
-public class PRelation implements Relationship{
-	@Override
-	public boolean equals(Object obj) {
-		if(obj instanceof PRelation){
-			PRelation rel = (PRelation) obj;
-			if(rel.getId() == GID)return true;
-		}
-		return false;
-	}
-
+public class PRelation implements Relationship, Comparable<Relationship>{
 	private final long GID;
 	private long[] pos;
 	private Relationship rela;
@@ -230,5 +221,30 @@ public class PRelation implements Relationship{
 	public GraphDatabaseService getGraphDatabase() {
 		throw new UnsupportedOperationException(
 		"Node.getGraphDatabase() not implemented");
+	}
+	
+	@Override
+	public boolean equals(Object obj) {
+		if(obj instanceof PRelation){
+			PRelation rel = (PRelation) obj;
+			if(rel.getId() == GID)return true;
+		}
+		return false;
+	}
+	
+	@Override
+	public int compareTo(Relationship arg0) {
+		if(arg0.getId()<GID){
+			return -1;
+		}
+		if(arg0.getId()>GID){
+			return 1;
+		}
+		return 0;
+	}
+
+	@Override
+	public int hashCode() {
+		return (int) GID;
 	}
 }
