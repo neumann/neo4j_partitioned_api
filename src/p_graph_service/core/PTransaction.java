@@ -6,10 +6,12 @@ import org.neo4j.graphdb.Transaction;
 
 
 public class PTransaction implements Transaction {
+	private final PGraphDatabaseServiceImpl pdb;
 	private HashMap<Long,Transaction> tParts;
 	
-	public PTransaction() {
+	public PTransaction(PGraphDatabaseServiceImpl db) {
 		this.tParts = new HashMap<Long, Transaction>();
+		this.pdb = db;
 	}
 	
 	public void registerResource(long id){
@@ -18,7 +20,7 @@ public class PTransaction implements Transaction {
 //			System.out.println(tParts);
 //			System.out.println(Neo4jDB.INST);
 //			System.out.println(id);
-			tParts.put(id, Neo4jDB.INST.get(id).beginTx());
+			tParts.put(id, pdb.INST.get(id).beginTx());
 		}
 	}
 	
@@ -35,7 +37,7 @@ public class PTransaction implements Transaction {
 			tx.finish();
 		}
 		tParts.clear();
-		Neo4jDB.PTX = null;
+		pdb.PTX = null;
 	}
 
 	@Override

@@ -33,4 +33,8 @@ public interface PGraphDatabaseService extends GraphDatabaseService {
 	public Node createNodeOn(long instanceID);
 	public Node createNodeOn(long GID, long instanceID);
 	public void moveNodes(Iterable<Node> nodes, long instanceID);
+	
+//	public Node getNodeByPos(long[] pos );
+//	public Relationship getRelaByPos(long[] pos );
+
 }

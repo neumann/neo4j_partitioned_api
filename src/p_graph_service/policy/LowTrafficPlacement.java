@@ -3,18 +3,19 @@ package p_graph_service.policy;
 import java.util.HashMap;
 
 import p_graph_service.PlacementPolicy;
-import p_graph_service.core.DBInstanceContainer;
+import p_graph_service.core.InstanceInfo;
+import p_graph_service.core.InstanceInfo.InfoKey;
 
 public class LowTrafficPlacement implements PlacementPolicy {
-	private HashMap<Long, DBInstanceContainer> inst;
+	private HashMap<Long, InstanceInfo> inst;
 	
 	public LowTrafficPlacement() {
-		inst = new HashMap<Long, DBInstanceContainer>();
+		inst = new HashMap<Long, InstanceInfo>();
 	}
 
 	@Override
-	public void addInstance(long id, DBInstanceContainer db) {
-		inst.put(id, db);
+	public void addInstance(long id, InstanceInfo inf) {
+		inst.put(id, inf);
 	}
 
 	@Override
@@ -23,7 +24,7 @@ public class LowTrafficPlacement implements PlacementPolicy {
 		long value = Long.MAX_VALUE;
 		
 		for(long key :inst.keySet()){
-			long numNodes = inst.get(key).getInfo().traffic;
+			long numNodes = inst.get(key).getValue(InfoKey.Traffic);
 			if(numNodes < value){
 				value = numNodes;
 				posLow = key;

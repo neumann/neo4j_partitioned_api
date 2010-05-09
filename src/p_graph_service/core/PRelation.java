@@ -7,52 +7,57 @@ import org.neo4j.graphdb.NotInTransactionException;
 import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.RelationshipType;
 
+import p_graph_service.PConst;
+import p_graph_service.PRelaABS;
 
-public class PRelation implements Relationship, Comparable<Relationship>{
+
+public class PRelation extends PRelaABS{
+	private final PGraphDatabaseServiceImpl pdb;
 	private final long GID;
 	private long[] pos;
 	private Relationship rela;
 	private long version;
 	
 	//NOTE don't hand it ghost relation that resolve to half relations on other servers
-	public PRelation(Relationship rel) {
-		this.GID = (Long)rel.getProperty(Neo4jDB.rGID);
+	public PRelation(Relationship rel, PGraphDatabaseServiceImpl db) {
+		this.pdb = db;
+		this.GID = (Long)rel.getProperty(PConst.rGID);
 		// it was a ghost relation so take the half relation instead
-		if(rel.hasProperty(Neo4jDB.IsGhost)){
-			pos = (long[]) rel.getProperty(Neo4jDB.IsGhost);
-			Neo4jDB.PTX.registerResource(pos[1]);
-			this.rela = Neo4jDB.INST.get(pos[1]).getRelationshipById(pos[2]);
+		if(rel.hasProperty(PConst.IsGhost)){
+			pos = (long[]) rel.getProperty(PConst.IsGhost);
+			pdb.PTX.registerResource(pos[1]);
+			this.rela = pdb.INST.get(pos[1]).getRelationshipById(pos[2]);
 		}else{
 			this.rela = rel;
-			this.pos = Neo4jDB.INDEX.findRela(GID);
+			this.pos = pdb.INDEX.findRela(GID);
 		}
-		this.version = Neo4jDB.VERS;
+		this.version = pdb.VERS;
 	}
 	
 	//NOTE will go boom if relationship has been moved to an other server
 	private void refresh(){
-		if(version != Neo4jDB.VERS){
-			pos = Neo4jDB.INDEX.findRela(GID);
-			Neo4jDB.PTX.registerResource(pos[1]);
-			rela = Neo4jDB.INST.get(pos[1]).getRelationshipById(pos[2]);
+		if(version != pdb.VERS){
+			pos = pdb.INDEX.findRela(GID);
+			pdb.PTX.registerResource(pos[1]);
+			rela = pdb.INST.get(pos[1]).getRelationshipById(pos[2]);
 		}
 	}
 	
 	@Override
 	public void delete() {
-		if(Neo4jDB.PTX == null) throw new NotInTransactionException();
+		if(pdb.PTX == null) throw new NotInTransactionException();
 		refresh();
-		Neo4jDB.PTX.registerResource(pos[1]);
+		pdb.PTX.registerResource(pos[1]);
 		
 		// count traffic
-		Neo4jDB.INST.get(pos[1]).logTraffic();
+		pdb.INST.get(pos[1]).logTraffic();
 		
 		// if halfRelation also delete ghostRelation
 		// cannot be a ghost relation itself since wrapper always contrains the half relation
-		if(rela.hasProperty(Neo4jDB.IsHalf)){
-			long[] otherPos = (long[])rela.getProperty(Neo4jDB.IsHalf);
-			Neo4jDB.PTX.registerResource(otherPos[1]);
-			Relationship gRela = Neo4jDB.INST.get(otherPos[1]).getRelationshipById(otherPos[2]);
+		if(rela.hasProperty(PConst.IsHalf)){
+			long[] otherPos = (long[])rela.getProperty(PConst.IsHalf);
+			pdb.PTX.registerResource(otherPos[1]);
+			Relationship gRela = pdb.INST.get(otherPos[1]).getRelationshipById(otherPos[2]);
 			Node gSrtNode = gRela.getStartNode();
 			gRela.delete();
 			if(!gSrtNode.hasRelationship()){
@@ -65,24 +70,24 @@ public class PRelation implements Relationship, Comparable<Relationship>{
 				gEndNode.delete();
 			}
 			//count traffic
-			Neo4jDB.INST.get(otherPos[1]).logTraffic();
+			pdb.INST.get(otherPos[1]).logTraffic();
 			
 		}else{	
 			rela.delete();
 		}
 		// update index
-		long[] pos = Neo4jDB.INDEX.findRela(GID);
-		Neo4jDB.INDEX.remRela(GID);
-		Neo4jDB.INST.get(pos[1]).logRemRela();
+		long[] pos = pdb.INDEX.findRela(GID);
+		pdb.INDEX.remRela(GID);
+		pdb.INST.get(pos[1]).logRemRela();
 	}
 
 	@Override
 	public Node getEndNode() {
-		if(Neo4jDB.PTX == null) throw new NotInTransactionException();
+		if(pdb.PTX == null) throw new NotInTransactionException();
 		refresh();
-		Neo4jDB.PTX.registerResource(pos[1]);
+		pdb.PTX.registerResource(pos[1]);
 		// return a wrapped version of the end node
-		return new PNode(rela.getEndNode());
+		return new PNode(rela.getEndNode(), pdb);
 	}
 
 	@Override
@@ -92,23 +97,23 @@ public class PRelation implements Relationship, Comparable<Relationship>{
 	
 	@Override
 	public Node[] getNodes() {
-		if(Neo4jDB.PTX == null) throw new NotInTransactionException();
+		if(pdb.PTX == null) throw new NotInTransactionException();
 		refresh();
-		Neo4jDB.PTX.registerResource(pos[1]);
+		pdb.PTX.registerResource(pos[1]);
 		
 		Node[] res = new Node[2];
-		res[0]= new PNode(rela.getStartNode());
+		res[0]= new PNode(rela.getStartNode(), pdb);
 		res[1]=getEndNode();
 		return res;
 	}
 
 	@Override
 	public Node getOtherNode(Node node) {
-		if(Neo4jDB.PTX == null) throw new NotInTransactionException();
+		if(pdb.PTX == null) throw new NotInTransactionException();
 		refresh();
-		Neo4jDB.PTX.registerResource(pos[1]);
+		pdb.PTX.registerResource(pos[1]);
 		
-		Node wSrtNode = new PNode(rela.getStartNode());
+		Node wSrtNode = new PNode(rela.getStartNode(), pdb);
 		if(node.getId() == wSrtNode.getId()){
 			return getEndNode();
 		}
@@ -121,54 +126,54 @@ public class PRelation implements Relationship, Comparable<Relationship>{
 
 	@Override
 	public Node getStartNode() {
-		if(Neo4jDB.PTX == null) throw new NotInTransactionException();
+		if(pdb.PTX == null) throw new NotInTransactionException();
 		refresh();
-		Neo4jDB.PTX.registerResource(pos[1]);
+		pdb.PTX.registerResource(pos[1]);
 		
-		return new PNode(rela.getStartNode());
+		return new PNode(rela.getStartNode(), pdb);
 	}
 
 	@Override
 	public RelationshipType getType() {
-		if(Neo4jDB.PTX == null) throw new NotInTransactionException();
+		if(pdb.PTX == null) throw new NotInTransactionException();
 		refresh();
-		Neo4jDB.PTX.registerResource(pos[1]);
+		pdb.PTX.registerResource(pos[1]);
 		
 		return rela.getType();
 	}
 
 	@Override
 	public boolean isType(RelationshipType type) {
-		if(Neo4jDB.PTX == null) throw new NotInTransactionException();
+		if(pdb.PTX == null) throw new NotInTransactionException();
 		refresh();
-		Neo4jDB.PTX.registerResource(pos[1]);
+		pdb.PTX.registerResource(pos[1]);
 		
 		return rela.isType(type);
 	}
 
 	@Override
 	public Object getProperty(String key) {
-		if(Neo4jDB.PTX == null) throw new NotInTransactionException();
+		if(pdb.PTX == null) throw new NotInTransactionException();
 		refresh();
-		Neo4jDB.PTX.registerResource(pos[1]);
+		pdb.PTX.registerResource(pos[1]);
 		
 		return rela.getProperty(key);
 	}
 
 	@Override
 	public Object getProperty(String key, Object defaultValue) {
-		if(Neo4jDB.PTX == null) throw new NotInTransactionException();
+		if(pdb.PTX == null) throw new NotInTransactionException();
 		refresh();
-		Neo4jDB.PTX.registerResource(pos[1]);
+		pdb.PTX.registerResource(pos[1]);
 		
 		return rela.getProperty(key, defaultValue);
 	}
 
 	@Override
 	public Iterable<String> getPropertyKeys() {
-		if(Neo4jDB.PTX == null) throw new NotInTransactionException();
+		if(pdb.PTX == null) throw new NotInTransactionException();
 		refresh();
-		Neo4jDB.PTX.registerResource(pos[1]);
+		pdb.PTX.registerResource(pos[1]);
 		
 		return rela.getPropertyKeys();
 	}
@@ -176,43 +181,43 @@ public class PRelation implements Relationship, Comparable<Relationship>{
 	@Override
 	@Deprecated
 	public Iterable<Object> getPropertyValues() {
-		if(Neo4jDB.PTX == null) throw new NotInTransactionException();
+		if(pdb.PTX == null) throw new NotInTransactionException();
 		refresh();
-		Neo4jDB.PTX.registerResource(pos[1]);
+		pdb.PTX.registerResource(pos[1]);
 		
 		return rela.getPropertyValues();
 	}
 
 	@Override
 	public boolean hasProperty(String key) {
-		if(Neo4jDB.PTX == null) throw new NotInTransactionException();
+		if(pdb.PTX == null) throw new NotInTransactionException();
 		refresh();
-		Neo4jDB.PTX.registerResource(pos[1]);
+		pdb.PTX.registerResource(pos[1]);
 		
 		return rela.hasProperty(key);
 	}
 
 	@Override
 	public Object removeProperty(String key) {
-		if(Neo4jDB.PTX == null) throw new NotInTransactionException();
+		if(pdb.PTX == null) throw new NotInTransactionException();
 		refresh();
-		Neo4jDB.PTX.registerResource(pos[1]);
+		pdb.PTX.registerResource(pos[1]);
 		
 		return rela.removeProperty(key);
 	}
 
 	@Override
 	public void setProperty(String key, Object value) {
-		if(Neo4jDB.PTX == null) throw new NotInTransactionException();
+		if(pdb.PTX == null) throw new NotInTransactionException();
 		refresh();
-		Neo4jDB.PTX.registerResource(pos[1]);
+		pdb.PTX.registerResource(pos[1]);
 		
 		rela.setProperty(key, value);
 	}
 	
 	public long[] getPos(){
 		refresh();
-		Neo4jDB.PTX.registerResource(pos[1]);
+		pdb.PTX.registerResource(pos[1]);
 		
 		return pos.clone();
 	}
@@ -221,30 +226,5 @@ public class PRelation implements Relationship, Comparable<Relationship>{
 	public GraphDatabaseService getGraphDatabase() {
 		throw new UnsupportedOperationException(
 		"Node.getGraphDatabase() not implemented");
-	}
-	
-	@Override
-	public boolean equals(Object obj) {
-		if(obj instanceof PRelation){
-			PRelation rel = (PRelation) obj;
-			if(rel.getId() == GID)return true;
-		}
-		return false;
-	}
-	
-	@Override
-	public int compareTo(Relationship arg0) {
-		if(arg0.getId()<GID){
-			return -1;
-		}
-		if(arg0.getId()>GID){
-			return 1;
-		}
-		return 0;
-	}
-
-	@Override
-	public int hashCode() {
-		return (int) GID;
 	}
 }
