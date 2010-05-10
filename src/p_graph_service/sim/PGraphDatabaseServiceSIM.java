@@ -302,6 +302,7 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 			fops.close();
 		}
 		catch (Exception e) {
+			e.printStackTrace();
 			// nothing to do there
 		}
 		db.shutdown();

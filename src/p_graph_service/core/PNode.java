@@ -16,6 +16,7 @@ import org.neo4j.graphdb.Traverser.Order;
 import p_graph_service.PConst;
 import p_graph_service.PNodeABS;
 
+
 @SuppressWarnings("deprecation")
 public class PNode extends PNodeABS{
 	private final PGraphDatabaseServiceImpl pdb;

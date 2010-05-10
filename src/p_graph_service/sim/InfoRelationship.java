@@ -154,9 +154,10 @@ public class InfoRelationship extends PRelaABS{
 		return rs.getPropertyKeys();
 	}
 
+	@SuppressWarnings("deprecation")
 	@Override
 	public Iterable<Object> getPropertyValues() {
-		return getPropertyValues();
+		return rs.getPropertyValues();
 	}
 
 	@Override
