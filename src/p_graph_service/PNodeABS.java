@@ -1,9 +1,6 @@
 package p_graph_service;
 
 import org.neo4j.graphdb.Node;
-
-import p_graph_service.core.PNode;
-
 public abstract class PNodeABS implements Node , Comparable<Node>{
 	
 	@Override
@@ -24,8 +21,8 @@ public abstract class PNodeABS implements Node , Comparable<Node>{
 
 	@Override
 	public boolean equals(Object obj) {
-		if (obj instanceof PNode) {
-			PNode pn = (PNode) obj;
+		if (obj instanceof PNodeABS) {
+			Node pn = (Node) obj;
 			if (pn.getId() == getId())
 				return true;
 		}
