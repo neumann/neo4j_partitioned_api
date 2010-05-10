@@ -1,0 +1,6 @@
+# .gitignore for neo4j_partitioned_api
+
+#.classpath 
+#.project 
+#.settings 
+target/
