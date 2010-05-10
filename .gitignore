@@ -1,0 +1,12 @@
+# Files
+.* 
+*~
+
+*.class
+*.met
+
+!.gitignore 
+
+# Directories
+target/
+
