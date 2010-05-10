@@ -10,6 +10,7 @@ import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.io.Serializable;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 
 import org.neo4j.graphdb.GraphDatabaseService;
@@ -118,7 +119,7 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 			INST.get(byteID).log(InfoKey.n_create);
 			Node n =db.createNode();
 			n.setProperty(col, byteID);
-			return n;
+			return new InfoNode(n, this);
 		}
 		return null;
 	}
@@ -233,31 +234,32 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 
 	@Override
 	public Iterable<Node> getAllNodes() {
-		return db.getAllNodes();
+		return new InfoNodeIteratable(db.getAllNodes(), this);
 	}
 
 	@Override
 	public Node getNodeById(long id) {
 		Node n = db.getNodeById(id);
 		byte pos = (Byte) n.getProperty(col);
-		INST.get(pos).log(InfoKey.Traffic);
-		return n;
+		INST.get(pos).log(InfoKey.Loc_Traffic);
+		return new InfoNode(n, this);
 	}
 
 	@Override
 	public Node getReferenceNode() {
 		Node n = db.getNodeById(0);
 		byte pos = (Byte) n.getProperty(col);
-		INST.get(pos).log(InfoKey.Traffic);
-		return n;
+		INST.get(pos).log(InfoKey.Loc_Traffic);
+		return new InfoNode(n, this);
 	}
 
 	@Override
 	public Relationship getRelationshipById(long id) {
 		Relationship rs = db.getRelationshipById(id);
 		byte pos = (Byte) rs.getStartNode().getProperty(col);
-		INST.get(pos).log(InfoKey.Traffic);
-		return rs;
+		INST.get(pos).log(InfoKey.Loc_Traffic);
+		InfoRelationship infrel = new InfoRelationship(rs, this);
+		return infrel;
 	}
 
 	@Override
@@ -303,6 +305,51 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 	public <T> TransactionEventHandler<T> unregisterTransactionEventHandler(
 			TransactionEventHandler<T> handler) {
 		throw new UnsupportedOperationException();
+	}
+	
+	private class InfoNodeIteratable implements Iterable<Node> {
+		private Iterable<Node> iter;
+		private PGraphDatabaseServiceSIM db;
+		
+		public InfoNodeIteratable(Iterable<Node> iter, PGraphDatabaseServiceSIM db) {
+			this.iter = iter;
+			this.db = db;
+		}
+
+		@Override
+		public Iterator<Node> iterator() {
+
+			return new InfoNodeIterator(iter.iterator(),db);
+		}
+
+	}
+
+	private class InfoNodeIterator implements Iterator<Node> {
+		private Iterator<Node> iter;
+		private PGraphDatabaseServiceSIM db;
+			
+		public InfoNodeIterator(Iterator<Node> iter, PGraphDatabaseServiceSIM db) {
+			this.iter = iter;
+			this.db = db;
+		}
+
+		@Override
+		public boolean hasNext() {
+			return iter.hasNext();
+		}
+
+		@Override
+		public Node next() {
+			// creates 1 traffic
+			InfoNode n = new InfoNode(iter.next(),db);
+			n.getId();
+			return n;
+		}
+
+		@Override
+		public void remove() {
+			iter.remove();
+		}
 	}
 
 }

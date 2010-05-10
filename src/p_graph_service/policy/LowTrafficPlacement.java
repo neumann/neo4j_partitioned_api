@@ -24,7 +24,7 @@ public class LowTrafficPlacement implements PlacementPolicy {
 		long value = Long.MAX_VALUE;
 		
 		for(long key :inst.keySet()){
-			long numNodes = inst.get(key).getValue(InfoKey.Traffic);
+			long numNodes = inst.get(key).getValue(InfoKey.Loc_Traffic);
 			if(numNodes < value){
 				value = numNodes;
 				posLow = key;
