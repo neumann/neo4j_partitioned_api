@@ -58,6 +58,7 @@ public class InfoNode extends PNodeABS{
 	@Override
 	public Relationship createRelationshipTo(Node arg0, RelationshipType arg1) {
 		refresh();
+		log(InfoKey.Loc_Traffic);
 		log(InfoKey.rs_create);
 		Node n = ((InfoNode)arg0).unwrap();
 		InfoRelationship infRel = new InfoRelationship(n.createRelationshipTo(n, arg1),db);
@@ -68,6 +69,7 @@ public class InfoNode extends PNodeABS{
 	@Override
 	public void delete() {
 		refresh();
+		log(InfoKey.Loc_Traffic);
 		log(InfoKey.n_delete);
 		n.delete();
 	}

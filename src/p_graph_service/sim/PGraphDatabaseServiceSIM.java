@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
+import org.neo4j.graphdb.Direction;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Relationship;
@@ -64,7 +65,6 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 			try {
 				for(Node n :  getAllNodes()){
 					if(n.getId() == 0)continue;
-					
 					byte pos = (Byte)n.getProperty(col);
 					if(!INST.containsKey(pos)){
 						InstanceInfo inf = new  InstanceInfo();
@@ -76,6 +76,11 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 						inf.log(InfoKey.n_create);
 						inf.resetTraffic();
 						INST.put(pos, inf);
+					}
+					
+					InstanceInfo instInf = INST.get(pos);
+					for (Relationship rel: n.getRelationships(Direction.OUTGOING)) {
+						instInf.log(InfoKey.rs_create);
 					}
 				}
 				tx.success();
@@ -116,6 +121,7 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 	public Node createNodeOn(long instanceID) {
 		byte byteID = (byte) instanceID;
 		if(INST.containsKey(byteID)){
+			INST.get(byteID).log(InfoKey.Loc_Traffic);
 			INST.get(byteID).log(InfoKey.n_create);
 			Node n =db.createNode();
 			n.setProperty(col, byteID);
@@ -169,12 +175,18 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 	public void moveNodes(Iterable<Node> nodes, long instanceID) {
 		byte byteID = (byte) instanceID;
 		if(INST.containsKey(byteID)){
-			InstanceInfo inf = INST.get(byteID);
+			InstanceInfo aimInf = INST.get(byteID);
 			for(Node n: nodes){
-				byte curPos = (Byte) n.getProperty(col);
-				INST.get(curPos).log(InfoKey.n_delete);
-				n.setProperty(col, byteID);
-				inf.log(InfoKey.n_create);	
+				Node uw = ((InfoNode)n).unwrap();
+				byte curPos = (Byte) uw.getProperty(col);
+				if(curPos == byteID){
+					continue;
+				}
+				InstanceInfo curInf = INST.get(curPos);
+				curInf.log(InfoKey.n_delete);
+				curInf.logMovementTo(byteID);
+				uw.setProperty(col, byteID);
+				aimInf.log(InfoKey.n_create);
 			}
 			VERS++;
 		}		

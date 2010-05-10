@@ -2,7 +2,6 @@ package p_graph_service.core;
 
 import java.io.Serializable;
 import java.util.HashMap;
-import org.neo4j.graphdb.Relationship;
 
 public class InstanceInfo implements Serializable {
 
@@ -17,9 +16,20 @@ public class InstanceInfo implements Serializable {
 	
 	public InstanceInfo() {
 		this.globalTrafficMap = new HashMap<Long, Long>();
+		this.moveNodeMap = new HashMap<Long, Long>();
 		this.accesses = new long[InfoKey.values().length] ;
 		for(int i=0; i<InfoKey.values().length ; i++){
 			accesses[i]=0;
+		}
+	}
+	
+	public void logMovementTo( byte to){
+		long aim = to;
+		accesses[InfoKey.Glo_Traffic.ordinal()]++;
+		if(moveNodeMap.containsKey(aim)){
+			moveNodeMap.put(aim, moveNodeMap.get(aim)+1);
+		}else{
+			moveNodeMap.put(aim, new Long(1));
 		}
 	}
 	
@@ -31,19 +41,15 @@ public class InstanceInfo implements Serializable {
 		accesses[key.ordinal()]++;
 		switch (key) {
 		case rs_create:
-			accesses[InfoKey.Loc_Traffic.ordinal()]++;
 			accesses[InfoKey.NumRelas.ordinal()]++;
 			return;
 		case rs_delete:
-			accesses[InfoKey.Loc_Traffic.ordinal()]++;
 			accesses[InfoKey.NumRelas.ordinal()]--;
 			return;
 		case n_create:
-			accesses[InfoKey.Loc_Traffic.ordinal()]++;
 			accesses[InfoKey.NumNodes.ordinal()]++;
 			return;
 		case n_delete:
-			accesses[InfoKey.Loc_Traffic.ordinal()]++;
 			accesses[InfoKey.NumNodes.ordinal()]--;
 			return;
 		default:
@@ -54,7 +60,8 @@ public class InstanceInfo implements Serializable {
 	public void resetTraffic(){
 		accesses[InfoKey.Loc_Traffic.ordinal()] = 0;
 		accesses[InfoKey.Glo_Traffic.ordinal()] = 0;
-		this.globalTrafficMap = new HashMap<Long, Long>();
+		this.globalTrafficMap.clear();
+		this.moveNodeMap.clear(); 
 	}
 	
 	public String toString(){
@@ -62,7 +69,7 @@ public class InstanceInfo implements Serializable {
 		for (InfoKey k : InfoKey.values()) {
 			res+="("+k.name() +" = " + accesses[k.ordinal()]+ ") ";
 		}
-		res+="}"+ globalTrafficMap;
+		res+="}"+ globalTrafficMap+ moveNodeMap;
 		return res;
 	}
 	
@@ -77,6 +84,16 @@ public class InstanceInfo implements Serializable {
 			}
 			res.globalTrafficMap.put(id, val);
 		}
+		for(long id: this.moveNodeMap.keySet()){
+			long val = this.moveNodeMap.get(id);
+			if(res.moveNodeMap.containsKey(id)){
+				val = res.moveNodeMap.get(id) - val;
+			}else{
+				val = -val;
+			}
+			res.moveNodeMap.put(id, val);
+		}
+		
 		for(int i = 0; i < accesses.length; i++ ){
 			res.accesses[i] -=this.accesses[i];
 		}
@@ -87,17 +104,9 @@ public class InstanceInfo implements Serializable {
 	public InstanceInfo takeSnapshot(){
 		InstanceInfo clone = new InstanceInfo();
 		clone.globalTrafficMap = (HashMap<Long, Long>) this.globalTrafficMap.clone();
+		clone.moveNodeMap = (HashMap<Long, Long>) this.moveNodeMap.clone();
 		clone.accesses = accesses.clone();
 		return clone;
-	}
-	
-	public void logHop(long[] pos, Relationship rs) {
-
-		if (rs.hasProperty("_isGhost") || rs.hasProperty("_isHalf")) {
-			// interhop on partitioned db
-			accesses[InfoKey.Glo_Traffic.ordinal()]++;
-			return;
-		}
 	}
 	
 	public void logInterComunication(byte to){

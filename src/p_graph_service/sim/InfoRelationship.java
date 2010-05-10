@@ -64,6 +64,7 @@ public class InfoRelationship extends PRelaABS{
 	@Override
 	public void delete() {
 		refresh();
+		log(InfoKey.Loc_Traffic);
 		log(InfoKey.rs_delete);
 		byte otherPos = (Byte) rs.getEndNode().getProperty(PGraphDatabaseServiceSIM.col);
 		logWriteRelationship(otherPos);
