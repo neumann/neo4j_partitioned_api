@@ -97,12 +97,13 @@ public class InfoRelationship extends PRelaABS{
 	}
 
 	@Override
-	public Node getOtherNode(Node arg0) {
+	public Node getOtherNode(Node arg) {
 		refresh();
-		if(arg0 == rs.getStartNode()){
+		Node arg0 = ((InfoNode)arg).unwrap();
+		if(arg0.equals(rs.getStartNode())){
 			return getEndNode();
 		}
-		if(arg0 == rs.getEndNode()){
+		if(arg0.equals(rs.getEndNode())){
 			return getStartNode();
 		}
 		return null;

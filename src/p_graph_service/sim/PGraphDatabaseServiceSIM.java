@@ -63,7 +63,7 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 		} catch (Exception e) {
 			Transaction tx = beginTx();
 			try {
-				for(Node n :  getAllNodes()){
+				for(Node n :  db.getAllNodes()){
 					if(n.getId() == 0)continue;
 					byte pos = (Byte)n.getProperty(col);
 					if(!INST.containsKey(pos)){

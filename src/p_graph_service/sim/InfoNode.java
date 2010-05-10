@@ -60,8 +60,8 @@ public class InfoNode extends PNodeABS{
 		refresh();
 		log(InfoKey.Loc_Traffic);
 		log(InfoKey.rs_create);
-		Node n = ((InfoNode)arg0).unwrap();
-		InfoRelationship infRel = new InfoRelationship(n.createRelationshipTo(n, arg1),db);
+		Relationship newRel = n.createRelationshipTo(((InfoNode)arg0).unwrap(), arg1);
+		InfoRelationship infRel = new InfoRelationship(newRel,db);
 		infRel.logWriteRelationship((Byte) n.getProperty(PGraphDatabaseServiceSIM.col));
 		return infRel;
 	}
@@ -245,7 +245,7 @@ public class InfoNode extends PNodeABS{
 			InfoRelationship rel = new InfoRelationship(iter.next(), db);
 			inf.log(InfoKey.Loc_Traffic);
 			rel.logReadRelationship(pos);
-			return new InfoRelationship(rel, db);
+			return rel;
 		}
 
 		@Override
