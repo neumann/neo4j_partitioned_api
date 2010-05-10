@@ -1,7 +1,10 @@
+# .gitignore for neo4j_partitioned_api 
+=======
 # Files
 .* 
 *~
-
+/.classpath
+/.settings
 *.class
 *.met
 
