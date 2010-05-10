@@ -4,7 +4,7 @@ import java.util.Random;
 import java.util.Vector;
 
 import p_graph_service.PlacementPolicy;
-import p_graph_service.core.DBInstanceContainer;
+import p_graph_service.core.InstanceInfo;
 
 public class RandomPlacement implements PlacementPolicy {
 	private Random rand;
@@ -21,7 +21,7 @@ public class RandomPlacement implements PlacementPolicy {
 	}
 
 	@Override
-	public void addInstance(long id, DBInstanceContainer db) {
+	public void addInstance(long id, InstanceInfo inf) {
 		inst.add(id);
 	}
 

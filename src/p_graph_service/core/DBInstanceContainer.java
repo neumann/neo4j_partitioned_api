@@ -20,6 +20,11 @@ import org.neo4j.graphdb.event.KernelEventHandler;
 import org.neo4j.graphdb.event.TransactionEventHandler;
 import org.neo4j.kernel.EmbeddedGraphDatabase;
 
+import com.sleepycat.je.rep.NodeType;
+
+import p_graph_service.PConst;
+import p_graph_service.core.InstanceInfo.InfoKey;
+
 /**
  * Wrapper for EmbeddedGraphDatabase contains information on size
  * 
@@ -39,7 +44,7 @@ public class DBInstanceContainer implements GraphDatabaseService {
 	
 	// traffic is define by: create Node, create Relationship, get Node, get Relationship,  delete Node, delete Relationship
 	public void logTraffic(){
-		info.traffic++;
+		info.log(InfoKey.Traffic);
 	}
 	
 	private void logExtTraffic(long instanceID){
@@ -53,18 +58,18 @@ public class DBInstanceContainer implements GraphDatabaseService {
 	}
 	
 	public void logAddNode(){
-		info.numNodes++;
+		info.log(InfoKey.n_create);
 	}
 	public void logRemNode(){
-		info.numNodes--;
+		info.log(InfoKey.n_delete);
 	}
 	
 	public void logAddRela(){
-		info.numRelas++;
+		info.log(InfoKey.rs_create);
 	}
 	
 	public void logRemRela(){
-		info.numRelas--;
+		info.log(InfoKey.rs_delete);
 	}
 	
 	public void resetTraffic(){
@@ -93,10 +98,10 @@ public class DBInstanceContainer implements GraphDatabaseService {
 			Transaction tx = beginTx();
 			try {
 				for(Node n :  getAllNodes()){
-					if(n.hasProperty(Neo4jDB.nGID) && !n.hasProperty(Neo4jDB.IsGhost)){
+					if(n.hasProperty(PConst.nGID) && !n.hasProperty(PConst.IsGhost)){
 						logAddNode();
 						for(Relationship r : n.getRelationships(Direction.OUTGOING)){
-							if(r.hasProperty(Neo4jDB.rGID) && !r.hasProperty(Neo4jDB.IsGhost)){
+							if(r.hasProperty(PConst.rGID) && !r.hasProperty(PConst.IsGhost)){
 								logAddRela();
 							}
 						}
@@ -135,7 +140,6 @@ public class DBInstanceContainer implements GraphDatabaseService {
 
 	@Override
 	public Iterable<Node> getAllNodes() {
-		info.traffic += info.numNodes;
 		return db.getAllNodes();
 	}
 
@@ -155,13 +159,12 @@ public class DBInstanceContainer implements GraphDatabaseService {
 	public Relationship getRelationshipById(long id) {
 		logTraffic();
 		Relationship rs = db.getRelationshipById(id);
-		info.intraHop ++;
-		if(rs.hasProperty(Neo4jDB.IsHalf)){
-			long[] adr = (long[]) rs.getProperty(Neo4jDB.IsHalf);
+		if(rs.hasProperty(PConst.IsHalf)){
+			long[] adr = (long[]) rs.getProperty(PConst.IsHalf);
 			logExtTraffic(adr[1]);
 		}
-		if(rs.hasProperty(Neo4jDB.IsGhost)){
-			long[] adr = (long[]) rs.getProperty(Neo4jDB.IsGhost);
+		if(rs.hasProperty(PConst.IsGhost)){
+			long[] adr = (long[]) rs.getProperty(PConst.IsGhost);
 			logExtTraffic(adr[1]);
 		}
 		return rs;

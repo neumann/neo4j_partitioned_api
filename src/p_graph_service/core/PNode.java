@@ -13,32 +13,64 @@ import org.neo4j.graphdb.StopEvaluator;
 import org.neo4j.graphdb.Traverser;
 import org.neo4j.graphdb.Traverser.Order;
 
+import p_graph_service.PConst;
+import p_graph_service.PNodeABS;
+
 @SuppressWarnings("deprecation")
-public class PNode implements Node, Comparable<Node> {
+public class PNode extends PNodeABS{
+	private final PGraphDatabaseServiceImpl pdb;
 	private final long GID;
 	private long[] pos;
 	private long version;
 	private Node node;
 
+	
+	
+	private Node findGhostForNode(Node node, long instance) {
+		Node res = null;
+
+		Iterator<Relationship> it = node.getRelationships().iterator();
+		while (it.hasNext() && res == null) {
+			Relationship rs = it.next();
+			if (rs.hasProperty(PConst.IsHalf)) {
+				long[] pos = (long[]) rs.getProperty(PConst.IsHalf);
+				if (pos[1] == instance) {
+					res = pdb.INST.get(pos[1])
+							.getRelationshipById(pos[2]).getStartNode();
+				}
+			} else if (rs.hasProperty(PConst.IsGhost)) {
+				long[] pos = (long[]) rs.getProperty(PConst.IsGhost);
+				if (pos[1] == instance) {
+					res = pdb.INST.get(pos[1])
+							.getRelationshipById(pos[2]).getEndNode();
+				}
+			}
+		}
+		return res;
+	}
+	
+	
+	
 	// constructor
 	// NOTE don't give it ghost nodes that resolve to other servers or it will
 	// go boom
-	public PNode(Node n) {
-		this.GID = (Long) n.getProperty(Neo4jDB.nGID);
-		this.pos = Neo4jDB.INDEX.findNode(GID);
-		if (n.hasProperty(Neo4jDB.IsGhost)) {
-			this.node = Neo4jDB.INST.get(pos[1]).getNodeById(pos[2]);
+	public PNode(Node n,  PGraphDatabaseServiceImpl db ) {
+		this.pdb = db;
+		this.GID = (Long) n.getProperty(PConst.nGID);
+		this.pos = pdb.INDEX.findNode(GID);
+		if (n.hasProperty(PConst.IsGhost)) {
+			this.node = pdb.INST.get(pos[1]).getNodeById(pos[2]);
 		} else {
 			this.node = n;
 		}
-		this.version = Neo4jDB.VERS;
+		this.version = pdb.VERS;
 	}
 
 	// refreshes reference if graph has changed
 	private void refresh() {
-		if (Neo4jDB.VERS != version) {
-			version = Neo4jDB.VERS;
-			long[] newPos = Neo4jDB.INDEX.findNode(GID);
+		if (pdb.VERS != version) {
+			version = pdb.VERS;
+			long[] newPos = pdb.INDEX.findNode(GID);
 
 			// throw exception when node moved to other server
 			if (newPos[0] != pos[0]) {
@@ -46,21 +78,21 @@ public class PNode implements Node, Comparable<Node> {
 			}
 
 			pos = newPos;
-			Neo4jDB.PTX.registerResource(pos[1]);
-			node = Neo4jDB.INST.get(pos[1]).getNodeById(pos[2]);
+			pdb.PTX.registerResource(pos[1]);
+			node = pdb.INST.get(pos[1]).getNodeById(pos[2]);
 		}
 	}
 
 	protected Node getWrappedNode() {
 		refresh();
-		Neo4jDB.PTX.registerResource(pos[1]);
+		pdb.PTX.registerResource(pos[1]);
 
 		return node;
 	}
 
 	public long[] getPos() {
 		refresh();
-		Neo4jDB.PTX.registerResource(pos[1]);
+		pdb.PTX.registerResource(pos[1]);
 
 		return pos.clone();
 	}
@@ -70,10 +102,10 @@ public class PNode implements Node, Comparable<Node> {
 			RelationshipType type) {
 
 		// transaction
-		if (Neo4jDB.PTX == null)
+		if (pdb.PTX == null)
 			throw new NotInTransactionException();
 		refresh();
-		Neo4jDB.PTX.registerResource(pos[1]);
+		pdb.PTX.registerResource(pos[1]);
 
 		Node otherNodeUW = ((PNode) otherNodeP).getWrappedNode();
 
@@ -82,15 +114,15 @@ public class PNode implements Node, Comparable<Node> {
 		// check own position
 		long[] ownPos = pos.clone();
 		// check target position
-		long[] otherPos = Neo4jDB.INDEX.findNode(((PNode) otherNodeP).getId());
+		long[] otherPos = pdb.INDEX.findNode(((PNode) otherNodeP).getId());
 
 		// log traffic on the instances
-		Neo4jDB.INST.get(ownPos[1]).logTraffic();
-		Neo4jDB.INST.get(otherPos[1]).logTraffic();
+		pdb.INST.get(ownPos[1]).logTraffic();
+		pdb.INST.get(otherPos[1]).logTraffic();
 
 		// create transactions if not already existing
-		Neo4jDB.PTX.registerResource(ownPos[1]);
-		Neo4jDB.PTX.registerResource(otherPos[1]);
+		pdb.PTX.registerResource(ownPos[1]);
+		pdb.PTX.registerResource(otherPos[1]);
 
 		if (ownPos[0] != otherPos[0]) {
 			throw new Error(
@@ -101,18 +133,18 @@ public class PNode implements Node, Comparable<Node> {
 		if (ownPos[0] == otherPos[0] && ownPos[1] == otherPos[1]) {
 
 			// relationship with id
-			long relID = Neo4jDB.GIDGenRela.nextId();
+			long relID = pdb.GIDGenRela.nextId();
 			Relationship rel = node.createRelationshipTo(otherNodeUW, type);
-			rel.setProperty(Neo4jDB.rGID, relID);
+			rel.setProperty(PConst.rGID, relID);
 			// register to lookup
 			long[] relPos = new long[3];
 			relPos[0] = ownPos[0];
 			relPos[1] = ownPos[1];
 			relPos[2] = rel.getId();
-			Neo4jDB.INDEX.addRela(relID, relPos);
-			Neo4jDB.INST.get(relPos[1]).logAddRela();
+			pdb.INDEX.addRela(relID, relPos);
+			pdb.INST.get(relPos[1]).logAddRela();
 			// return wrapper
-			return new PRelation(rel);
+			return new PRelation(rel, pdb);
 		}
 
 		// if on different partition create ghostnodes and links
@@ -121,36 +153,36 @@ public class PNode implements Node, Comparable<Node> {
 			Node srtGNode = null;
 
 			// find endGNode if existing
-			otherGNode = Neo4jDB.findGhostForNode(otherNodeUW, ownPos[1]);
+			otherGNode = findGhostForNode(otherNodeUW, ownPos[1]);
 
 			// find startNode if existing
-			srtGNode = Neo4jDB.findGhostForNode(node, otherPos[1]);
+			srtGNode = findGhostForNode(node, otherPos[1]);
 
 			// create ghost endNode if not found
 			if (otherGNode == null) {
-				otherGNode = Neo4jDB.INST.get(ownPos[1]).createNode();
-				otherGNode.setProperty(Neo4jDB.nGID, otherNodeP.getId());
-				otherGNode.setProperty(Neo4jDB.IsGhost, otherPos);
+				otherGNode = pdb.INST.get(ownPos[1]).createNode();
+				otherGNode.setProperty(PConst.nGID, otherNodeP.getId());
+				otherGNode.setProperty(PConst.IsGhost, otherPos);
 			}
 
 			// create ghost srtNode if not found
 			if (srtGNode == null) {
-				srtGNode = Neo4jDB.INST.get(otherPos[1]).createNode();
-				srtGNode.setProperty(Neo4jDB.nGID, GID);
-				srtGNode.setProperty(Neo4jDB.IsGhost, ownPos);
+				srtGNode = pdb.INST.get(otherPos[1]).createNode();
+				srtGNode.setProperty(PConst.nGID, GID);
+				srtGNode.setProperty(PConst.IsGhost, ownPos);
 			}
 
 			// create ID
-			long relID = Neo4jDB.GIDGenRela.nextId();
+			long relID = pdb.GIDGenRela.nextId();
 
 			// create halfRelation
 			Relationship hlfRel = node.createRelationshipTo(otherGNode, type);
-			hlfRel.setProperty(Neo4jDB.rGID, relID);
+			hlfRel.setProperty(PConst.rGID, relID);
 
 			// ghost relation
 			Relationship gstRel = srtGNode.createRelationshipTo(otherNodeUW,
 					type);
-			gstRel.setProperty(Neo4jDB.rGID, relID);
+			gstRel.setProperty(PConst.rGID, relID);
 
 			long[] hlfPos = new long[3];
 			hlfPos[0] = ownPos[0];
@@ -163,15 +195,15 @@ public class PNode implements Node, Comparable<Node> {
 			gstPos[2] = gstRel.getId();
 
 			// connect the relation to each other
-			gstRel.setProperty(Neo4jDB.IsGhost, hlfPos);
-			hlfRel.setProperty(Neo4jDB.IsHalf, gstPos);
+			gstRel.setProperty(PConst.IsGhost, hlfPos);
+			hlfRel.setProperty(PConst.IsHalf, gstPos);
 
 			// register halfRelation to lookup
-			Neo4jDB.INDEX.addRela(relID, hlfPos);
-			Neo4jDB.INST.get(hlfPos[1]).logAddRela();
+			pdb.INDEX.addRela(relID, hlfPos);
+			pdb.INST.get(hlfPos[1]).logAddRela();
 
 			// return wrapper
-			return new PRelation(hlfRel);
+			return new PRelation(hlfRel, pdb);
 		}
 
 		return null;
@@ -179,17 +211,17 @@ public class PNode implements Node, Comparable<Node> {
 
 	@Override
 	public void delete() {
-		if (Neo4jDB.PTX == null)
+		if (pdb.PTX == null)
 			throw new NotInTransactionException();
 		refresh();
-		Neo4jDB.PTX.registerResource(pos[1]);
+		pdb.PTX.registerResource(pos[1]);
 
 		// NOTE: IMPORTANT! make sure all relationships are removed
 		// otherwise it goes boom until transaction rollback implemented
-		Neo4jDB.INST.get(pos[1]).logTraffic();
+		pdb.INST.get(pos[1]).logTraffic();
 
-		Neo4jDB.INDEX.remNode(GID);
-		Neo4jDB.INST.get(pos[1]).logRemNode();
+		pdb.INDEX.remNode(GID);
+		pdb.INST.get(pos[1]).logRemNode();
 		node.delete();
 	}
 
@@ -201,51 +233,51 @@ public class PNode implements Node, Comparable<Node> {
 
 	@Override
 	public Iterable<Relationship> getRelationships() {
-		if (Neo4jDB.PTX == null)
+		if (pdb.PTX == null)
 			throw new NotInTransactionException();
 		refresh();
-		Neo4jDB.PTX.registerResource(pos[1]);
-		return new WrapIterable<Relationship>(node.getRelationships());
+		pdb.PTX.registerResource(pos[1]);
+		return new WrapIterable<Relationship>(node.getRelationships(), pdb);
 	}
 
 	@Override
 	public Iterable<Relationship> getRelationships(RelationshipType... types) {
-		if (Neo4jDB.PTX == null)
+		if (pdb.PTX == null)
 			throw new NotInTransactionException();
 		refresh();
-		Neo4jDB.PTX.registerResource(pos[1]);
-		return new WrapIterable<Relationship>(node.getRelationships(types));
+		pdb.PTX.registerResource(pos[1]);
+		return new WrapIterable<Relationship>(node.getRelationships(types),pdb);
 	}
 
 	@Override
 	public Iterable<Relationship> getRelationships(Direction dir) {
-		if (Neo4jDB.PTX == null)
+		if (pdb.PTX == null)
 			throw new NotInTransactionException();
 		refresh();
-		Neo4jDB.PTX.registerResource(pos[1]);
-		return new WrapIterable<Relationship>(node.getRelationships(dir));
+		pdb.PTX.registerResource(pos[1]);
+		return new WrapIterable<Relationship>(node.getRelationships(dir),pdb);
 	}
 
 	@Override
 	public Iterable<Relationship> getRelationships(RelationshipType type,
 			Direction dir) {
 
-		if (Neo4jDB.PTX == null)
+		if (pdb.PTX == null)
 			throw new NotInTransactionException();
 		refresh();
-		Neo4jDB.PTX.registerResource(pos[1]);
-		return new WrapIterable<Relationship>(node.getRelationships(type, dir));
+		pdb.PTX.registerResource(pos[1]);
+		return new WrapIterable<Relationship>(node.getRelationships(type, dir), pdb);
 	}
 
 	@Override
 	public Relationship getSingleRelationship(RelationshipType type,
 			Direction dir) {
-		if (Neo4jDB.PTX == null)
+		if (pdb.PTX == null)
 			throw new NotInTransactionException();
 		refresh();
-		Neo4jDB.PTX.registerResource(pos[1]);
-		Neo4jDB.INST.get(pos[1]).logTraffic();
-		return new PRelation(node.getSingleRelationship(type, dir));
+		pdb.PTX.registerResource(pos[1]);
+		pdb.INST.get(pos[1]).logTraffic();
+		return new PRelation(node.getSingleRelationship(type, dir), pdb);
 	}
 
 	@Override
@@ -308,89 +340,93 @@ public class PNode implements Node, Comparable<Node> {
 
 	@Override
 	public Object getProperty(String key) {
-		if (Neo4jDB.PTX == null)
+		if (pdb.PTX == null)
 			throw new NotInTransactionException();
 		refresh();
-		Neo4jDB.PTX.registerResource(pos[1]);
+		pdb.PTX.registerResource(pos[1]);
 		return node.getProperty(key);
 	}
 
 	@Override
 	public Object getProperty(String key, Object defaultValue) {
-		if (Neo4jDB.PTX == null)
+		if (pdb.PTX == null)
 			throw new NotInTransactionException();
 		refresh();
-		Neo4jDB.PTX.registerResource(pos[1]);
+		pdb.PTX.registerResource(pos[1]);
 		return node.getProperty(key, defaultValue);
 	}
 
 	@Override
 	public Iterable<String> getPropertyKeys() {
-		if (Neo4jDB.PTX == null)
+		if (pdb.PTX == null)
 			throw new NotInTransactionException();
 		refresh();
-		Neo4jDB.PTX.registerResource(pos[1]);
+		pdb.PTX.registerResource(pos[1]);
 		return node.getPropertyKeys();
 	}
 
 	@Override
 	@Deprecated
 	public Iterable<Object> getPropertyValues() {
-		if (Neo4jDB.PTX == null)
+		if (pdb.PTX == null)
 			throw new NotInTransactionException();
 		refresh();
-		Neo4jDB.PTX.registerResource(pos[1]);
+		pdb.PTX.registerResource(pos[1]);
 		return node.getPropertyValues();
 	}
 
 	@Override
 	public boolean hasProperty(String key) {
-		if (Neo4jDB.PTX == null)
+		if (pdb.PTX == null)
 			throw new NotInTransactionException();
 		refresh();
-		Neo4jDB.PTX.registerResource(pos[1]);
+		pdb.PTX.registerResource(pos[1]);
 		return node.hasProperty(key);
 	}
 
 	@Override
 	public Object removeProperty(String key) {
-		if (Neo4jDB.PTX == null)
+		if (pdb.PTX == null)
 			throw new NotInTransactionException();
 		refresh();
-		Neo4jDB.PTX.registerResource(pos[1]);
+		pdb.PTX.registerResource(pos[1]);
 		return node.removeProperty(key);
 	}
 
 	@Override
 	public void setProperty(String key, Object value) {
-		if (Neo4jDB.PTX == null)
+		if (pdb.PTX == null)
 			throw new NotInTransactionException();
 		refresh();
-		Neo4jDB.PTX.registerResource(pos[1]);
+		pdb.PTX.registerResource(pos[1]);
 		node.setProperty(key, value);
 	}
 
 	// utility class replacing ghostRelations
 	private class WrapIterable<T> implements Iterable<Relationship> {
-		Iterable<Relationship> iterRel;
-
-		public WrapIterable(Iterable<Relationship> rel) {
+		private Iterable<Relationship> iterRel;
+		private PGraphDatabaseServiceImpl db;
+		
+		public WrapIterable(Iterable<Relationship> rel, PGraphDatabaseServiceImpl db) {
 			this.iterRel = rel;
+			this.db = db;
 		}
 
 		@Override
 		public Iterator<Relationship> iterator() {
-			return new WrapIterator<Relationship>(iterRel.iterator());
+			return new WrapIterator<Relationship>(iterRel.iterator(), db);
 		}
 
 	}
 
 	// iterator on WrapIterable.class
 	private class WrapIterator<T> implements Iterator<Relationship> {
-		Iterator<Relationship> relIter;
+		private Iterator<Relationship> relIter;
+		private PGraphDatabaseServiceImpl db;
 
-		public WrapIterator(Iterator<Relationship> rel) {
+		public WrapIterator(Iterator<Relationship> rel, PGraphDatabaseServiceImpl db) {
 			this.relIter = rel;
+			this.db = db;
 		}
 
 		@Override
@@ -401,8 +437,8 @@ public class PNode implements Node, Comparable<Node> {
 		@Override
 		public Relationship next() {
 			Relationship rel = relIter.next();
-			Neo4jDB.INST.get(pos[1]).logTraffic();
-			return new PRelation(rel);
+			pdb.INST.get(pos[1]).logTraffic();
+			return new PRelation(rel, db);
 		}
 
 		@Override
@@ -416,31 +452,5 @@ public class PNode implements Node, Comparable<Node> {
 	public GraphDatabaseService getGraphDatabase() {
 		throw new UnsupportedOperationException(
 				"Node.getGraphDatabase() not implemented");
-	}
-
-	@Override
-	public int compareTo(Node arg0) {
-		if(arg0.getId()<GID){
-			return -1;
-		}
-		if(arg0.getId()>GID){
-			return 1;
-		}
-		return 0;
-	}
-
-	@Override
-	public int hashCode() {
-		return (int) GID;
-	}
-
-	@Override
-	public boolean equals(Object obj) {
-		if (obj instanceof PNode) {
-			PNode pn = (PNode) obj;
-			if (pn.getId() == GID)
-				return true;
-		}
-		return false;
 	}
 }

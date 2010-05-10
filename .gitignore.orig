@@ -1,0 +1,21 @@
+<<<<<<< HEAD
+# .gitignore for neo4j_partitioned_api
+
+#.classpath 
+#.project 
+#.settings 
+target/
+=======
+# Files
+.* 
+*~
+
+*.class
+*.met
+
+!.gitignore 
+
+# Directories
+target/
+
+>>>>>>> 943afa4c880ebbd9b4c72267d764f16b7321e79e

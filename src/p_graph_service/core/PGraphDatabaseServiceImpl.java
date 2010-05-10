@@ -1,8 +1,10 @@
 package p_graph_service.core;
 
 import java.io.File;
+import java.io.FileFilter;
 import java.io.Serializable;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
@@ -17,26 +19,122 @@ import org.neo4j.graphdb.RelationshipType;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.graphdb.event.KernelEventHandler;
 import org.neo4j.graphdb.event.TransactionEventHandler;
+import org.neo4j.kernel.impl.nioneo.store.IdGenerator;
+import org.neo4j.kernel.impl.nioneo.store.IdGeneratorImpl;
 
+import p_graph_service.GIDLookup;
+import p_graph_service.PConst;
 import p_graph_service.PGraphDatabaseService;
 import p_graph_service.PlacementPolicy;
+import p_graph_service.core.InstanceInfo.InfoKey;
 import p_graph_service.policy.RandomPlacement;
 
 public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 	private final long SERVICE_ID;
 	private PlacementPolicy placementPol;
+	
+	protected long VERS;
+	// neo4j instances
+	public HashMap<Long,DBInstanceContainer>INST;
+	// berkley db lookup service
+	protected GIDLookup INDEX;
+	// GID generator (basically copy of the neo4j version)
+	protected IdGenerator GIDGenRela;
+	protected IdGenerator GIDGenNode;
+	// db folder
+	protected File DB_DIR;
+	// transaction support
+	protected PTransaction PTX = null;
+
+	
+	private Node findGhostForNode(Node node, long instance) {
+		Node res = null;
+
+		Iterator<Relationship> it = node.getRelationships().iterator();
+		while (it.hasNext() && res == null) {
+			Relationship rs = it.next();
+			if (rs.hasProperty(PConst.IsHalf)) {
+				long[] pos = (long[]) rs.getProperty(PConst.IsHalf);
+				if (pos[1] == instance) {
+					res = INST.get(pos[1])
+							.getRelationshipById(pos[2]).getStartNode();
+				}
+			} else if (rs.hasProperty(PConst.IsGhost)) {
+				long[] pos = (long[]) rs.getProperty(PConst.IsGhost);
+				if (pos[1] == instance) {
+					res = INST.get(pos[1])
+							.getRelationshipById(pos[2]).getEndNode();
+				}
+			}
+		}
+		return res;
+	}
+	
+	private void startup(String path){
+		this.VERS = 0;
+		this.INST = new HashMap<Long, DBInstanceContainer>();
+
+		// load instances
+		this.DB_DIR = new File(path);
+
+		// create folder is not existent
+		if (!DB_DIR.exists()) {
+			DB_DIR.mkdirs();
+		}
+		
+		// list DBinstances
+		File[] instances = DB_DIR.listFiles(new FileFilter() {
+			public boolean accept(File file) {
+				return (file.isDirectory() && file.getName().matches(
+						PConst.InstaceRegex));
+			}
+		});
+
+		// create found instances
+		for (File inst : instances) {
+			long instID = Long.parseLong(inst.getName().substring(8));
+			DBInstanceContainer instContainer = new DBInstanceContainer(inst.getPath(), instID); 
+			INST.put(instID, instContainer);
+		}
+		
+		//TODO save an load ID in a right way
+		File gidStoreNode = new File(path+"/"+PConst.nGID);
+		try {
+			GIDGenNode = new IdGeneratorImpl(gidStoreNode.getAbsolutePath(), 100);
+		} catch (Exception e) {
+			gidStoreNode.delete();
+			IdGeneratorImpl.createGenerator(gidStoreNode.getAbsolutePath());
+			//TODO rebuild generator
+			GIDGenNode = new IdGeneratorImpl(gidStoreNode.getAbsolutePath(), 100);
+		}
+		
+		File gidStoreRela = new File(path+"/"+PConst.rGID);
+		try {
+			GIDGenRela = new IdGeneratorImpl(gidStoreRela.getAbsolutePath(), 100);
+		} catch (Exception e) {
+			gidStoreRela.delete();
+			IdGeneratorImpl.createGenerator(gidStoreRela.getAbsolutePath());
+			//TODO rebuild generator
+			GIDGenRela = new IdGeneratorImpl(gidStoreRela.getAbsolutePath(), 100);
+		}
+		
+		// lookup service
+		INDEX = new BDB_GIDLookupImpl(path+"/BDB");
+	}
 
 	// if no instance is found it is an empty container
 	public PGraphDatabaseServiceImpl(String path, long id) {
 
+		this.VERS = 0;
+		
 		this.SERVICE_ID = id;
 		
-		Neo4jDB.startup(path);
+		startup(path);
 	
 		// TODO put policy to a setting file
 		this.placementPol = new RandomPlacement();
-		for (long k: Neo4jDB.INST.keySet()) {
-			placementPol.addInstance(k, Neo4jDB.INST.get(k));
+		for (long k: INST.keySet()) {
+			placementPol.addInstance(k, getInstanceInfoFor(k));
 		}
 	}
 
@@ -58,8 +156,8 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 	@Override
 	public boolean removeInstance(long id) {
 		// TODO not tested will screw up reference node
-		if (Neo4jDB.INST.get(id).getInfo().numNodes == 0) {
-			Neo4jDB.INST.remove(id);
+		if (INST.get(id).getInfo().getValue(InfoKey.NumNodes) == 0) {
+			INST.remove(id);
 			return true;
 		}
 		return false;
@@ -80,8 +178,8 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 		if (f.exists()) {
 			DBInstanceContainer instContainer = new DBInstanceContainer(path,
 					id);
-			Neo4jDB.INST.put(id, instContainer);
-			placementPol.addInstance(id, instContainer);
+			INST.put(id, instContainer);
+			placementPol.addInstance(id, instContainer.getInfo());
 			return true;
 		}
 		return false;
@@ -89,9 +187,9 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 	
 	@Override
 	public long[] getInstancesIDs() {
-		long[] res = new long[Neo4jDB.INST.keySet().size()];
+		long[] res = new long[INST.keySet().size()];
 		int i = 0;
-		for (long id : Neo4jDB.INST.keySet()) {
+		for (long id : INST.keySet()) {
 			res[i] = id;
 			i++;
 		}
@@ -101,19 +199,19 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 
 	@Override
 	public int getNumInstances() {
-		return Neo4jDB.INST.values().size();
+		return INST.values().size();
 	}
 
 	@Override
 	public Node createNode(long gid) {
-		if (Neo4jDB.PTX == null)
+		if (PTX == null)
 			throw new NotInTransactionException();
 		return createNodeOn(gid, placementPol.getPosition());
 	}
 	
 	@Override
 	public Node createNodeOn(long instanceID) {
-		if (Neo4jDB.PTX == null)
+		if (PTX == null)
 			throw new NotInTransactionException();
 		// create GID
 		long gid = createGID();
@@ -122,7 +220,7 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 	
 	@Override
 	public Node createNode() {
-		if (Neo4jDB.PTX == null)
+		if (PTX == null)
 			throw new NotInTransactionException();
 		return createNodeOn(placementPol.getPosition());
 	}
@@ -137,13 +235,13 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 		Vector<long[]> aimPositions = new Vector<long[]>();
 
 		// instance does not exist
-		if (!Neo4jDB.INST.containsKey(instanceID))
+		if (!INST.containsKey(instanceID))
 			throw new Error("Instance " + instanceID + " does not exist");
 
 		// transaction support
-		if (Neo4jDB.PTX == null)
+		if (PTX == null)
 			throw new NotInTransactionException();
-		Neo4jDB.PTX.registerResource(instanceID);
+		PTX.registerResource(instanceID);
 
 		// first move all nodes then repair all relations
 		for (Node curN : partitionedNodes) {
@@ -161,14 +259,14 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 			// -------------- move node ------------------------------
 
 			// find GNode on targetInstance
-			Node aimN = Neo4jDB.findGhostForNode(curN, instanceID);
+			Node aimN = findGhostForNode(curN, instanceID);
 			// create a new node if none has been found
 			if (aimN == null) {
-				aimN = Neo4jDB.INST.get(instanceID).createNode();
-				aimN.setProperty(Neo4jDB.nGID, nodeGID);
+				aimN = INST.get(instanceID).createNode();
+				aimN.setProperty(PConst.nGID, nodeGID);
 			} else {
 				// make aim node a none ghost
-				aimN.removeProperty(Neo4jDB.IsGhost);
+				aimN.removeProperty(PConst.IsGhost);
 			}
 
 			// copy all properties
@@ -180,12 +278,12 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 			aimPos[0] = curPos[0];
 			aimPos[1] = instanceID;
 			aimPos[2] = aimN.getId();
-			curN.setProperty(Neo4jDB.IsGhost, aimPos);
+			curN.setProperty(PConst.IsGhost, aimPos);
 
 			// update lookup and instance information
-			Neo4jDB.INDEX.addNode(nodeGID, aimPos);
-			Neo4jDB.INST.get(curPos[1]).logRemNode();
-			Neo4jDB.INST.get(aimPos[1]).logAddNode();
+			INDEX.addNode(nodeGID, aimPos);
+			INST.get(curPos[1]).logRemNode();
+			INST.get(aimPos[1]).logAddNode();
 
 			// store information to reuse on repairing relations if needed
 			if (curN.hasRelationship()) {
@@ -214,21 +312,21 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 				Node sNode = rs.getStartNode();
 
 				// its a ghost relation
-				if (rs.hasProperty(Neo4jDB.IsGhost)) {
+				if (rs.hasProperty(PConst.IsGhost)) {
 
 					// get half relation information
-					long[] hRelPos = (long[]) rs.getProperty(Neo4jDB.IsGhost);
-					Relationship hRel = Neo4jDB.INST.get(hRelPos[1])
+					long[] hRelPos = (long[]) rs.getProperty(PConst.IsGhost);
+					Relationship hRel = INST.get(hRelPos[1])
 							.getRelationshipById(hRelPos[2]);
 					Node hRelStartNode = hRel.getStartNode();
 
 					// Start node is a normal node
-					if (!hRelStartNode.hasProperty(Neo4jDB.IsGhost)) {
+					if (!hRelStartNode.hasProperty(PConst.IsGhost)) {
 
 						// move to the same instance so ghost construct is not
 						// needed anymore
 						if (instanceID == hRelPos[1]) {
-							hRel.removeProperty(Neo4jDB.IsHalf);
+							hRel.removeProperty(PConst.IsHalf);
 							rs.delete();
 						}
 
@@ -237,34 +335,34 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 							// find new start node for ghost relationship if
 							// existing
 							Node newGRelStartNode = null;
-							newGRelStartNode = Neo4jDB.findGhostForNode(
+							newGRelStartNode = findGhostForNode(
 									hRelStartNode, instanceID);
 							// create ghost node if not existing
 							if (newGRelStartNode == null) {
-								newGRelStartNode = Neo4jDB.INST.get(instanceID)
+								newGRelStartNode = INST.get(instanceID)
 										.createNode();
-								newGRelStartNode.setProperty(Neo4jDB.nGID, sNode
-										.getProperty(Neo4jDB.nGID));
-								newGRelStartNode.setProperty(Neo4jDB.IsGhost,
-										sNode.getProperty(Neo4jDB.IsGhost));
+								newGRelStartNode.setProperty(PConst.nGID, sNode
+										.getProperty(PConst.nGID));
+								newGRelStartNode.setProperty(PConst.IsGhost,
+										sNode.getProperty(PConst.IsGhost));
 							}
 
 							// create the relationships and link to half
 							// relation
 							Relationship newRS = newGRelStartNode
 									.createRelationshipTo(aimN, rs.getType());
-							newRS.setProperty(Neo4jDB.rGID, rs
-									.getProperty(Neo4jDB.rGID));
-							newRS.setProperty(Neo4jDB.IsGhost, rs
-									.getProperty(Neo4jDB.IsGhost));
+							newRS.setProperty(PConst.rGID, rs
+									.getProperty(PConst.rGID));
+							newRS.setProperty(PConst.IsGhost, rs
+									.getProperty(PConst.IsGhost));
 
 							// update half relation and its endNode
 							long[] newRSPos = new long[3];
 							newRSPos[0] = aimPos[0];
 							newRSPos[1] = aimPos[1];
 							newRSPos[2] = newRS.getId();
-							hRel.setProperty(Neo4jDB.IsHalf, newRSPos);
-							hRel.getEndNode().setProperty(Neo4jDB.IsGhost,
+							hRel.setProperty(PConst.IsHalf, newRSPos);
+							hRel.getEndNode().setProperty(PConst.IsGhost,
 									aimPos);
 
 							rs.delete();
@@ -272,7 +370,7 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 					}
 				}
 				// its a normal relation and start node has not been moved
-				else if (!sNode.hasProperty(Neo4jDB.IsGhost)) {
+				else if (!sNode.hasProperty(PConst.IsGhost)) {
 
 					long[] sNodePos = new long[3];
 					sNodePos[0] = curPos[0];
@@ -280,32 +378,32 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 					sNodePos[2] = sNode.getId();
 
 					// find the new Start node or create it if not existing
-					Node newGRelStartNode = Neo4jDB.findGhostForNode(sNode,
+					Node newGRelStartNode = findGhostForNode(sNode,
 							instanceID);
 					if (newGRelStartNode == null) {
-						newGRelStartNode = Neo4jDB.INST.get(instanceID)
+						newGRelStartNode = INST.get(instanceID)
 								.createNode();
-						newGRelStartNode.setProperty(Neo4jDB.nGID, sNode
-								.getProperty(Neo4jDB.nGID));
-						newGRelStartNode.setProperty(Neo4jDB.IsGhost, sNodePos);
+						newGRelStartNode.setProperty(PConst.nGID, sNode
+								.getProperty(PConst.nGID));
+						newGRelStartNode.setProperty(PConst.IsGhost, sNodePos);
 					}
 
 					// create the ghost relation and link it to half relation
 					Relationship newRS = newGRelStartNode.createRelationshipTo(
 							aimN, rs.getType());
-					newRS.setProperty(Neo4jDB.rGID, rs.getProperty(Neo4jDB.rGID));
+					newRS.setProperty(PConst.rGID, rs.getProperty(PConst.rGID));
 					long[] hRelPos = new long[3];
 					hRelPos[0] = curPos[0];
 					hRelPos[1] = curPos[1];
 					hRelPos[2] = rs.getId();
-					newRS.setProperty(Neo4jDB.IsGhost, hRelPos);
+					newRS.setProperty(PConst.IsGhost, hRelPos);
 
 					// update half relation
 					long[] newRSPos = new long[3];
 					newRSPos[0] = aimPos[0];
 					newRSPos[1] = aimPos[1];
 					newRSPos[2] = newRS.getId();
-					rs.setProperty(Neo4jDB.IsHalf, newRSPos);
+					rs.setProperty(PConst.IsHalf, newRSPos);
 				}
 				// start and end node will be moved
 				// relationship will be repaired by the start node
@@ -314,7 +412,7 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 				}
 
 				if (!sNode.hasRelationship()
-						&& sNode.hasProperty(Neo4jDB.IsGhost)) {
+						&& sNode.hasProperty(PConst.IsGhost)) {
 					nodeToDelete.add(sNode);
 				}
 			}
@@ -323,20 +421,20 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 				Node eNode = rs.getEndNode();
 				long[] newRsPos;
 
-				if (rs.hasProperty(Neo4jDB.IsHalf)) {
+				if (rs.hasProperty(PConst.IsHalf)) {
 					// gather information on ghost relation
-					long[] gRelPos = (long[]) rs.getProperty(Neo4jDB.IsHalf);
-					Relationship gRel = Neo4jDB.INST.get(gRelPos[1])
+					long[] gRelPos = (long[]) rs.getProperty(PConst.IsHalf);
+					Relationship gRel = INST.get(gRelPos[1])
 							.getRelationshipById(gRelPos[2]);
 					Node gRelEndNode = gRel.getEndNode();
 
 					// both nodes have been moved to the same partition no ghost
 					// construct needed anymore
-					if (gRelEndNode.hasProperty(Neo4jDB.IsGhost)) {
+					if (gRelEndNode.hasProperty(PConst.IsGhost)) {
 
 						long[] newEndNodePos = (long[]) gRelEndNode
-								.getProperty(Neo4jDB.IsGhost);
-						Node newEndNode = Neo4jDB.INST.get(newEndNodePos[1])
+								.getProperty(PConst.IsGhost);
+						Node newEndNode = INST.get(newEndNodePos[1])
 								.getNodeById(newEndNodePos[2]);
 
 						Relationship newRs = aimN.createRelationshipTo(
@@ -347,7 +445,7 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 						newRsPos[2] = newRs.getId();
 
 						// copy relationship
-						rs.removeProperty(Neo4jDB.IsHalf);
+						rs.removeProperty(PConst.IsHalf);
 						for (String key : rs.getPropertyKeys()) {
 							newRs.setProperty(key, rs.getProperty(key));
 						}
@@ -358,8 +456,8 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 					// ghost construct needed anymore
 					else if (gRelPos[1] == instanceID) {
 						newRsPos = gRelPos;
-						rs.removeProperty(Neo4jDB.IsHalf);
-						gRel.removeProperty(Neo4jDB.IsGhost);
+						rs.removeProperty(PConst.IsHalf);
+						gRel.removeProperty(PConst.IsGhost);
 
 						// copy relationship
 						for (String key : rs.getPropertyKeys()) {
@@ -373,17 +471,17 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 					else {
 						// find the new end node or create it if not existing
 						long[] eNodePos = (long[]) eNode
-								.getProperty(Neo4jDB.IsGhost);
-						Node newENode = Neo4jDB.findGhostForNode(Neo4jDB.INST
+								.getProperty(PConst.IsGhost);
+						Node newENode = findGhostForNode(INST
 								.get(eNodePos[1]).getNodeById(eNodePos[2]),
 								instanceID);
 						if (newENode == null) {
-							newENode = Neo4jDB.INST.get(instanceID)
+							newENode = INST.get(instanceID)
 									.createNode();
-							newENode.setProperty(Neo4jDB.nGID, eNode
-									.getProperty(Neo4jDB.nGID));
-							newENode.setProperty(Neo4jDB.IsGhost, eNode
-									.getProperty(Neo4jDB.IsGhost));
+							newENode.setProperty(PConst.nGID, eNode
+									.getProperty(PConst.nGID));
+							newENode.setProperty(PConst.IsGhost, eNode
+									.getProperty(PConst.IsGhost));
 						}
 						// create the relationship and link to ghost relation
 						Relationship newRS = aimN.createRelationshipTo(
@@ -397,9 +495,9 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 						newRsPos[0] = aimPos[0];
 						newRsPos[1] = aimPos[1];
 						newRsPos[2] = newRS.getId();
-						gRel.setProperty(Neo4jDB.IsGhost, newRsPos);
+						gRel.setProperty(PConst.IsGhost, newRsPos);
 						gRel.getStartNode()
-								.setProperty(Neo4jDB.IsGhost, aimPos);
+								.setProperty(PConst.IsGhost, aimPos);
 
 						rs.delete();
 					}
@@ -413,14 +511,14 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 					eNodePos[2] = eNode.getId();
 
 					// both nodes will be moved to same partition
-					if (eNode.hasProperty(Neo4jDB.IsGhost)) {
+					if (eNode.hasProperty(PConst.IsGhost)) {
 						long[] newENodePos = (long[]) eNode
-								.getProperty(Neo4jDB.IsGhost);
-						Node newENode = Neo4jDB.INST.get(newENodePos[1])
+								.getProperty(PConst.IsGhost);
+						Node newENode = INST.get(newENodePos[1])
 								.getNodeById(newENodePos[2]);
 						Relationship newRS = aimN.createRelationshipTo(
 								newENode, rs.getType());
-						rs.removeProperty(Neo4jDB.IsHalf);
+						rs.removeProperty(PConst.IsHalf);
 						for (String key : rs.getPropertyKeys()) {
 							newRS.setProperty(key, rs.getProperty(key));
 						}
@@ -438,14 +536,14 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 					// to be created
 					else {
 						// find the new Start node or create it if not existing
-						Node newENode = Neo4jDB.findGhostForNode(eNode,
+						Node newENode = findGhostForNode(eNode,
 								instanceID);
 						if (newENode == null) {
-							newENode = Neo4jDB.INST.get(instanceID)
+							newENode = INST.get(instanceID)
 									.createNode();
-							newENode.setProperty(Neo4jDB.nGID, eNode
-									.getProperty(Neo4jDB.nGID));
-							newENode.setProperty(Neo4jDB.IsGhost, eNodePos);
+							newENode.setProperty(PConst.nGID, eNode
+									.getProperty(PConst.nGID));
+							newENode.setProperty(PConst.IsGhost, eNodePos);
 						}
 						// create the half relation and link it to ghost
 						// relation
@@ -458,26 +556,26 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 						gRsPos[0] = curPos[0];
 						gRsPos[1] = curPos[1];
 						gRsPos[2] = rs.getId();
-						newRS.setProperty(Neo4jDB.IsHalf, gRsPos);
+						newRS.setProperty(PConst.IsHalf, gRsPos);
 						newRsPos = new long[3];
 						newRsPos[0] = aimPos[0];
 						newRsPos[1] = aimPos[1];
 						newRsPos[2] = newRS.getId();
 
 						// make normal relation to ghost relation
-						rs.setProperty(Neo4jDB.IsGhost, newRsPos);
+						rs.setProperty(PConst.IsGhost, newRsPos);
 					}
 				}
 
 				// update lookup
-				Neo4jDB.INDEX.addRela((Long) rs.getProperty(Neo4jDB.rGID),
+				INDEX.addRela((Long) rs.getProperty(PConst.rGID),
 						newRsPos);
-				Neo4jDB.INST.get(newRsPos[1]).logAddRela();
-				Neo4jDB.INST.get(curPos[1]).logAddRela();
+				INST.get(newRsPos[1]).logAddRela();
+				INST.get(curPos[1]).logAddRela();
 
 				// mark node for deletion if not needed
 				if (!eNode.hasRelationship()
-						&& eNode.hasProperty(Neo4jDB.IsGhost)) {
+						&& eNode.hasProperty(PConst.IsGhost)) {
 					nodeToDelete.add(eNode);
 				}
 			}
@@ -494,17 +592,17 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 
 		// increase version number of the graph to force all references to
 		// update
-		Neo4jDB.VERS++;
+		VERS++;
 	}
 
 	
 
 	@Override
 	public Transaction beginTx() {
-		if (Neo4jDB.PTX == null) {
-			Neo4jDB.PTX = new PTransaction();
+		if (PTX == null) {
+			PTX = new PTransaction(this);
 		}
-		return Neo4jDB.PTX;
+		return PTX;
 	}
 
 	
@@ -524,40 +622,40 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 	@Override
 	public Iterable<Node> getAllNodes() {
 		// throw Exception if not wrapped in transaction
-		if (Neo4jDB.PTX == null)
+		if (PTX == null)
 			throw new NotInTransactionException();
 		// create transactions if not yet existing
-		for (Long containerID : Neo4jDB.INST.keySet()) {
-			Neo4jDB.PTX.registerResource(containerID);
+		for (Long containerID : INST.keySet()) {
+			PTX.registerResource(containerID);
 		}
 
 		HashSet<Iterable<Node>> iterables = new HashSet<Iterable<Node>>();
-		for (DBInstanceContainer db : Neo4jDB.INST.values()) {
+		for (DBInstanceContainer db : INST.values()) {
 			iterables.add(db.getAllNodes());
 		}
-		return new JoinedIterable(iterables);
+		return new JoinedIterable(iterables, this);
 	}
 
 	@Override
 	public Node getNodeById(long id) {
-		if (Neo4jDB.PTX == null)
+		if (PTX == null)
 			throw new NotInTransactionException();
-		long[] adr = Neo4jDB.INDEX.findNode(id);
-		if (adr[0] == getServiceID() && Neo4jDB.INST.containsKey(adr[1])) {
+		long[] adr = INDEX.findNode(id);
+		if (adr[0] == getServiceID() && INST.containsKey(adr[1])) {
 			// create transaction if not yet existing
-			Neo4jDB.PTX.registerResource(adr[1]);
-			return new PNode(Neo4jDB.INST.get(adr[1]).getNodeById(adr[2]));
+			PTX.registerResource(adr[1]);
+			return new PNode(INST.get(adr[1]).getNodeById(adr[2]), this);
 		}
 		return null;
 	}
 
 	@Override
 	public Node getReferenceNode() {
-		if (Neo4jDB.PTX == null)
+		if (PTX == null)
 			throw new NotInTransactionException();
 
 		// create reference node if not existing 
-		if( Neo4jDB.INDEX.findNode(0)== null && !Neo4jDB.INST.isEmpty()){ 
+		if( INDEX.findNode(0)== null && !INST.isEmpty()){ 
 			long instID = this.getInstancesIDs()[0];
 			this.createNodeOn(0, instID); 
 		}
@@ -566,30 +664,30 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 
 	@Override
 	public Relationship getRelationshipById(long id) {
-		if (Neo4jDB.PTX == null)
+		if (PTX == null)
 			throw new NotInTransactionException();
-		long[] adr = Neo4jDB.INDEX.findRela(id);
-		if (adr[0] == getServiceID() && Neo4jDB.INST.containsKey(adr[1])) {
+		long[] adr = INDEX.findRela(id);
+		if (adr[0] == getServiceID() && INST.containsKey(adr[1])) {
 			// create transaction if not yet existing
-			Neo4jDB.PTX.registerResource(adr[1]);
-			return new PRelation(Neo4jDB.INST.get(adr[1]).getRelationshipById(adr[2]));
+			PTX.registerResource(adr[1]);
+			return new PRelation(INST.get(adr[1]).getRelationshipById(adr[2]), this);
 		}
 		return null;
 	}
 
 	@Override
 	public Iterable<RelationshipType> getRelationshipTypes() {
-		if (Neo4jDB.PTX == null)
+		if (PTX == null)
 			throw new NotInTransactionException();
 
 		// create transactions if not yet existing
-		for (Long containerID : Neo4jDB.INST.keySet()) {
-			Neo4jDB.PTX.registerResource(containerID);
+		for (Long containerID : INST.keySet()) {
+			PTX.registerResource(containerID);
 		}
 
 		// TODO prevent duplicates in the result
 		HashSet<Iterable<RelationshipType>> iterables = new HashSet<Iterable<RelationshipType>>();
-		for (DBInstanceContainer db : Neo4jDB.INST.values()) {
+		for (DBInstanceContainer db : INST.values()) {
 			iterables.add(db.getRelationshipTypes());
 		}
 		return null;
@@ -598,53 +696,55 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 	@Override
 	public void shutdown() {
 		// shutdown instances
-		for (DBInstanceContainer dbInst : Neo4jDB.INST.values()) {
+		for (DBInstanceContainer dbInst : INST.values()) {
 			dbInst.shutdown();
 		}
 
 		// shutdown lookup
-		Neo4jDB.INDEX.shutdown();
+		INDEX.shutdown();
 
 		// shutdown GIDcreator
-		Neo4jDB.GIDGenNode.close();
-		Neo4jDB.GIDGenRela.close();
+		GIDGenNode.close();
+		GIDGenRela.close();
 	}
 
 	// TODO refine to make joining of the id's nicer
 	private long createGID() {
-		long localPart = Neo4jDB.GIDGenNode.nextId();
+		long localPart = GIDGenNode.nextId();
 		String gid = SERVICE_ID + "" + localPart;
 		return Long.parseLong(gid);
 	}
 
 	// utility class that joins several Iterable classes together
 	class JoinedIterable implements Iterable<Node> {
-		Set<Iterable<Node>> joined;
-		String type;
+		private PGraphDatabaseServiceImpl pdb;
+		private Set<Iterable<Node>> joined;
 
-		public JoinedIterable(Set<Iterable<Node>> joined) {
+		public JoinedIterable(Set<Iterable<Node>> joined, PGraphDatabaseServiceImpl db) {
 			this.joined = joined;
 		}
 
 		@Override
 		public Iterator<Node> iterator() {
 			if (joined == null)
-				return new JoinedIterator(null);
+				return new JoinedIterator(null, null);
 			Set<Iterator<Node>> iterSet = new HashSet<Iterator<Node>>();
 			for (Iterable<Node> t : joined) {
 				iterSet.add(t.iterator());
 			}
-			return new JoinedIterator(iterSet);
+			return new JoinedIterator(iterSet, pdb);
 		}
 	}
 
 	// iterator on JoinedIterable.class
 	class JoinedIterator implements Iterator<Node> {
-		Set<Iterator<Node>> joined;
-		Iterator<Node> curIter = null;
-		Node item = null;
+		private Set<Iterator<Node>> joined;
+		private PGraphDatabaseServiceImpl pdb;
+		private Iterator<Node> curIter = null;
+		private Node item = null;
 
-		public JoinedIterator(Set<Iterator<Node>> joined) {
+		public JoinedIterator(Set<Iterator<Node>> joined, PGraphDatabaseServiceImpl db) {
+			this.pdb = db;
 			this.joined = joined;
 		}
 
@@ -665,7 +765,7 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 
 				if (curIter != null) {
 					item = curIter.next();
-					if (item.getId() == 0 || item.hasProperty(Neo4jDB.IsGhost)) {
+					if (item.getId() == 0 || item.hasProperty(PConst.IsGhost)) {
 						item = null;
 					}
 				}
@@ -677,7 +777,7 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 		@Override
 		public Node next() {
 			if (hasNext()) {
-				PNode res = new PNode(item);
+				PNode res = new PNode(item, pdb);
 				item = null;
 				return res;
 
@@ -694,28 +794,28 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 
 	@Override
 	public Node createNodeOn(long gid, long instanceID) {
-		if (Neo4jDB.PTX == null)
+		if (PTX == null)
 			throw new NotInTransactionException();
-		DBInstanceContainer inst = Neo4jDB.INST.get(instanceID);
+		DBInstanceContainer inst = INST.get(instanceID);
 		// create transaction if not existing
-		Neo4jDB.PTX.registerResource(instanceID);
+		PTX.registerResource(instanceID);
 
 		// create node
 		Node n = null;
 		n = inst.createNode();
-		n.setProperty(Neo4jDB.nGID, gid);
+		n.setProperty(PConst.nGID, gid);
 
 		// register node to lookup service
 		long[] adr = { this.getServiceID(), instanceID, n.getId() };
-		Neo4jDB.INDEX.addNode(gid, adr);
-		Neo4jDB.INST.get(adr[1]).logAddNode();
+		INDEX.addNode(gid, adr);
+		INST.get(adr[1]).logAddNode();
 
-		return new PNode(n);
+		return new PNode(n, this);
 	}
 	
 	@Override
 	public boolean addInstance(long id) {
-		String folder = Neo4jDB.DB_DIR.getAbsolutePath() + "/" + "instance"
+		String folder = DB_DIR.getAbsolutePath() + "/" + "instance"
 				+ id;
 		DBInstanceContainer instContainer = new DBInstanceContainer(folder, id);
 		// delete reference node
@@ -726,8 +826,8 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 		} finally {
 			tx.finish();
 		}
-		Neo4jDB.INST.put(id, instContainer);
-		placementPol.addInstance(id, instContainer);
+		INST.put(id, instContainer);
+		placementPol.addInstance(id, instContainer.getInfo());
 		return true;
 	}	
 
@@ -756,19 +856,19 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 
 	@Override
 	public InstanceInfo getInstanceInfoFor(long id) {
-		return Neo4jDB.INST.get(id).getInfo();
+		return INST.get(id).getInfo();
 	}
 
 	@Override
 	public void resetLogging() {
-		for(DBInstanceContainer cont : Neo4jDB.INST.values()){
+		for(DBInstanceContainer cont : INST.values()){
 			cont.resetTraffic();
 		}
 	}
 
 	@Override
 	public void resetLoggingOn(long id) {
-		Neo4jDB.INST.get(id).resetTraffic();
+		INST.get(id).resetTraffic();
 	}
 
 }
