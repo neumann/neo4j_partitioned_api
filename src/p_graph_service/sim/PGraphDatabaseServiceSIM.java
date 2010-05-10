@@ -1,6 +1,5 @@
 package p_graph_service.sim;
 
-
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -31,55 +30,59 @@ import p_graph_service.policy.RandomPlacement;
 
 public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 	public final static String col = "_color";
-	
+
 	private final long SERVICE_ID;
 	private GraphDatabaseService db;
 	private PlacementPolicy placementPol;
 	protected long VERS;
 	// neo4j instances
-	public HashMap<Byte, InstanceInfo>INST;
+	public HashMap<Byte, InstanceInfo> INST;
 	// db folder
 	protected File DB_DIR;
-	
-	
+
 	@SuppressWarnings("unchecked")
 	public PGraphDatabaseServiceSIM(String folder, long instID) {
-		this.db=new EmbeddedGraphDatabase(folder);
+		this.db = new EmbeddedGraphDatabase(folder);
 		this.SERVICE_ID = instID;
-		
+
 		this.VERS = 0;
 		this.INST = new HashMap<Byte, InstanceInfo>();
 		this.DB_DIR = new File(folder);
 		this.placementPol = new RandomPlacement();
-		
+
 		// load stored meta information
 		try {
-			InputStream fips = new FileInputStream(new File(DB_DIR.getName()+"/info"));
+			InputStream fips = new FileInputStream(new File(DB_DIR
+					.getAbsolutePath()
+					+ "/info"));
+
 			ObjectInputStream oips = new ObjectInputStream(fips);
 			this.INST = (HashMap<Byte, InstanceInfo>) oips.readObject();
-		
+
 			oips.close();
-			fips.close();	
+			fips.close();
 		} catch (Exception e) {
 			Transaction tx = beginTx();
 			try {
-				for(Node n :  db.getAllNodes()){
-					if(n.getId() == 0)continue;
-					byte pos = (Byte)n.getProperty(col);
-					if(!INST.containsKey(pos)){
-						InstanceInfo inf = new  InstanceInfo();
+				for (Node n : db.getAllNodes()) {
+					if (n.getId() == 0)
+						continue;
+					byte pos = (Byte) n.getProperty(col);
+					if (!INST.containsKey(pos)) {
+						InstanceInfo inf = new InstanceInfo();
 						inf.log(InfoKey.n_create);
 						inf.resetTraffic();
 						INST.put(pos, inf);
-					}else{
+					} else {
 						InstanceInfo inf = INST.get(pos);
 						inf.log(InfoKey.n_create);
 						inf.resetTraffic();
 						INST.put(pos, inf);
 					}
-					
+
 					InstanceInfo instInf = INST.get(pos);
-					for (Relationship rel: n.getRelationships(Direction.OUTGOING)) {
+					for (Relationship rel : n
+							.getRelationships(Direction.OUTGOING)) {
 						instInf.log(InfoKey.rs_create);
 					}
 				}
@@ -88,19 +91,19 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 				tx.finish();
 			}
 		}
-		
-		for(byte b : INST.keySet()){
+
+		for (byte b : INST.keySet()) {
 			placementPol.addInstance(b, INST.get(b));
 		}
-		
+
 	}
-	
-	
+
 	@Override
 	public boolean addInstance() {
-		byte high =0;
-		for(byte b: INST.keySet()){
-			if(high <= b)high++;
+		byte high = 0;
+		for (byte b : INST.keySet()) {
+			if (high <= b)
+				high++;
 		}
 		INST.put(high, new InstanceInfo());
 		return true;
@@ -108,7 +111,7 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 
 	@Override
 	public boolean addInstance(long id) {
-		INST.put((byte)id, new InstanceInfo());
+		INST.put((byte) id, new InstanceInfo());
 		return true;
 	}
 
@@ -120,10 +123,10 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 	@Override
 	public Node createNodeOn(long instanceID) {
 		byte byteID = (byte) instanceID;
-		if(INST.containsKey(byteID)){
+		if (INST.containsKey(byteID)) {
 			INST.get(byteID).log(InfoKey.Loc_Traffic);
 			INST.get(byteID).log(InfoKey.n_create);
-			Node n =db.createNode();
+			Node n = db.createNode();
 			n.setProperty(col, byteID);
 			return new InfoNode(n, this);
 		}
@@ -137,15 +140,15 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 
 	@Override
 	public InstanceInfo getInstanceInfoFor(long id) {
-		return INST.get((byte)id);
+		return INST.get((byte) id);
 	}
 
 	@Override
 	public long[] getInstancesIDs() {
 		long[] res = new long[INST.keySet().size()];
-		int i=0;
-		for(byte k : INST.keySet()){
-			res[i] = (long)k;
+		int i = 0;
+		for (byte k : INST.keySet()) {
+			res[i] = (long) k;
 			i++;
 		}
 		return res;
@@ -174,12 +177,12 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 	@Override
 	public void moveNodes(Iterable<Node> nodes, long instanceID) {
 		byte byteID = (byte) instanceID;
-		if(INST.containsKey(byteID)){
+		if (INST.containsKey(byteID)) {
 			InstanceInfo aimInf = INST.get(byteID);
-			for(Node n: nodes){
-				Node uw = ((InfoNode)n).unwrap();
+			for (Node n : nodes) {
+				Node uw = ((InfoNode) n).unwrap();
 				byte curPos = (Byte) uw.getProperty(col);
-				if(curPos == byteID){
+				if (curPos == byteID) {
 					continue;
 				}
 				InstanceInfo curInf = INST.get(curPos);
@@ -189,14 +192,14 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 				aimInf.log(InfoKey.n_create);
 			}
 			VERS++;
-		}		
+		}
 	}
 
 	@Override
 	public boolean removeInstance(long id) {
 		byte byteID = (byte) id;
-		if(INST.containsKey(id)){
-			if(INST.get(byteID).getValue(InfoKey.NumNodes) == 0){
+		if (INST.containsKey(id)) {
+			if (INST.get(byteID).getValue(InfoKey.NumNodes) == 0) {
 				INST.remove(byteID);
 				return true;
 			}
@@ -206,7 +209,7 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 
 	@Override
 	public void resetLogging() {
-		for(InstanceInfo inf: INST.values()){
+		for (InstanceInfo inf : INST.values()) {
 			inf.resetTraffic();
 		}
 	}
@@ -214,7 +217,7 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 	@Override
 	public void resetLoggingOn(long id) {
 		byte byteID = (byte) id;
-		if(INST.containsKey(id)){
+		if (INST.containsKey(id)) {
 			INST.get(byteID).resetTraffic();
 		}
 	}
@@ -294,14 +297,16 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 	@Override
 	public void shutdown() {
 		// store meta information
-		try{
-			OutputStream fops = new FileOutputStream(new File(DB_DIR.getName()+"/info"));
+		try {
+			OutputStream fops = new FileOutputStream(new File(DB_DIR
+					.getAbsolutePath()
+					+ "/info"));
+
 			ObjectOutputStream oops = new ObjectOutputStream(fops);
 			oops.writeObject(INST);
 			oops.close();
 			fops.close();
-		}
-		catch (Exception e) {
+		} catch (Exception e) {
 			// nothing to do there
 		}
 		db.shutdown();
@@ -318,12 +323,13 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 			TransactionEventHandler<T> handler) {
 		throw new UnsupportedOperationException();
 	}
-	
+
 	private class InfoNodeIteratable implements Iterable<Node> {
 		private Iterable<Node> iter;
 		private PGraphDatabaseServiceSIM db;
-		
-		public InfoNodeIteratable(Iterable<Node> iter, PGraphDatabaseServiceSIM db) {
+
+		public InfoNodeIteratable(Iterable<Node> iter,
+				PGraphDatabaseServiceSIM db) {
 			this.iter = iter;
 			this.db = db;
 		}
@@ -331,7 +337,7 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 		@Override
 		public Iterator<Node> iterator() {
 
-			return new InfoNodeIterator(iter.iterator(),db);
+			return new InfoNodeIterator(iter.iterator(), db);
 		}
 
 	}
@@ -339,7 +345,7 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 	private class InfoNodeIterator implements Iterator<Node> {
 		private Iterator<Node> iter;
 		private PGraphDatabaseServiceSIM db;
-			
+
 		public InfoNodeIterator(Iterator<Node> iter, PGraphDatabaseServiceSIM db) {
 			this.iter = iter;
 			this.db = db;
@@ -353,7 +359,7 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 		@Override
 		public Node next() {
 			// creates 1 traffic
-			InfoNode n = new InfoNode(iter.next(),db);
+			InfoNode n = new InfoNode(iter.next(), db);
 			n.getId();
 			return n;
 		}
