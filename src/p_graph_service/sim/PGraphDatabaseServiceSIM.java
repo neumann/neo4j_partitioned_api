@@ -50,7 +50,6 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 		this.DB_DIR = new File(folder);
 		this.placementPol = new RandomPlacement();
 		
-		//TODO load db
 		// load stored meta information
 		try {
 			InputStream fips = new FileInputStream(new File(DB_DIR.getName()+"/info"));
@@ -95,7 +94,7 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 	public boolean addInstance() {
 		byte high =0;
 		for(byte b: INST.keySet()){
-			if(high < b)high++;
+			if(high <= b)high++;
 		}
 		INST.put(high, new InstanceInfo());
 		return true;
