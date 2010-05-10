@@ -65,8 +65,8 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 			Transaction tx = beginTx();
 			try {
 				for (Node n : db.getAllNodes()) {
-					if (n.getId() == 0)
-						continue;
+					if (!n.hasProperty(col))n.delete();
+							
 					byte pos = (Byte) n.getProperty(col);
 					if (!INST.containsKey(pos)) {
 						InstanceInfo inf = new InstanceInfo();

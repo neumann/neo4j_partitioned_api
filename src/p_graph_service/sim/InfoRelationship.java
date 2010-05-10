@@ -19,14 +19,14 @@ public class InfoRelationship extends PRelaABS{
 	public void logReadRelationship(byte curPos){
 		if(curPos!=pos){
 			inf.logInterComunication(curPos);
-			inf.log(InfoKey.Loc_Traffic);
+//			inf.log(InfoKey.Loc_Traffic);
 		}	
 	}
 	
 	public void logWriteRelationship(byte curPos){
 		if(curPos!=pos){
 			inf.logInterComunication(curPos);
-			db.getInstanceInfoFor(curPos).log(InfoKey.Loc_Traffic);
+//			db.getInstanceInfoFor(curPos).log(InfoKey.Loc_Traffic);
 		}
 	}
 	
