@@ -7,15 +7,16 @@ import org.neo4j.graphdb.Relationship;
 public class InstanceInfo implements Serializable {
 
 	private static final long serialVersionUID = 1L;
-	public HashMap<Long, Long> interHopMap;
+	public HashMap<Long, Long> globalTrafficMap;
+	public HashMap<Long, Long> moveNodeMap;
 	private long[] accesses; 
 	
 	public enum InfoKey{
-		InterHop, IntraHop, NumNodes, NumRelas, Traffic, rs_delete, n_delete, rs_create, n_create
+		Glo_Traffic,  NumNodes, NumRelas, Loc_Traffic, rs_delete, n_delete, rs_create, n_create
 	}
 	
 	public InstanceInfo() {
-		this.interHopMap = new HashMap<Long, Long>();
+		this.globalTrafficMap = new HashMap<Long, Long>();
 		this.accesses = new long[InfoKey.values().length] ;
 		for(int i=0; i<InfoKey.values().length ; i++){
 			accesses[i]=0;
@@ -30,19 +31,19 @@ public class InstanceInfo implements Serializable {
 		accesses[key.ordinal()]++;
 		switch (key) {
 		case rs_create:
-			accesses[InfoKey.Traffic.ordinal()]++;
+			accesses[InfoKey.Loc_Traffic.ordinal()]++;
 			accesses[InfoKey.NumRelas.ordinal()]++;
 			return;
 		case rs_delete:
-			accesses[InfoKey.Traffic.ordinal()]++;
+			accesses[InfoKey.Loc_Traffic.ordinal()]++;
 			accesses[InfoKey.NumRelas.ordinal()]--;
 			return;
 		case n_create:
-			accesses[InfoKey.Traffic.ordinal()]++;
+			accesses[InfoKey.Loc_Traffic.ordinal()]++;
 			accesses[InfoKey.NumNodes.ordinal()]++;
 			return;
 		case n_delete:
-			accesses[InfoKey.Traffic.ordinal()]++;
+			accesses[InfoKey.Loc_Traffic.ordinal()]++;
 			accesses[InfoKey.NumNodes.ordinal()]--;
 			return;
 		default:
@@ -51,10 +52,9 @@ public class InstanceInfo implements Serializable {
 	}
 	
 	public void resetTraffic(){
-		accesses[InfoKey.Traffic.ordinal()] = 0;
-		accesses[InfoKey.InterHop.ordinal()] = 0;
-		accesses[InfoKey.IntraHop.ordinal()] = 0;
-		this.interHopMap = new HashMap<Long, Long>();
+		accesses[InfoKey.Loc_Traffic.ordinal()] = 0;
+		accesses[InfoKey.Glo_Traffic.ordinal()] = 0;
+		this.globalTrafficMap = new HashMap<Long, Long>();
 	}
 	
 	public String toString(){
@@ -62,20 +62,20 @@ public class InstanceInfo implements Serializable {
 		for (InfoKey k : InfoKey.values()) {
 			res+="("+k.name() +" = " + accesses[k.ordinal()]+ ") ";
 		}
-		res+="}"+ interHopMap;
+		res+="}"+ globalTrafficMap;
 		return res;
 	}
 	
 	public InstanceInfo differenceTo(InstanceInfo info){
 		InstanceInfo res = info.takeSnapshot();
-		for(long id: this.interHopMap.keySet()){
-			long val = this.interHopMap.get(id);
-			if(res.interHopMap.containsKey(id)){
-				val = res.interHopMap.get(id) - val;
+		for(long id: this.globalTrafficMap.keySet()){
+			long val = this.globalTrafficMap.get(id);
+			if(res.globalTrafficMap.containsKey(id)){
+				val = res.globalTrafficMap.get(id) - val;
 			}else{
 				val = -val;
 			}
-			res.interHopMap.put(id, val);
+			res.globalTrafficMap.put(id, val);
 		}
 		for(int i = 0; i < accesses.length; i++ ){
 			res.accesses[i] -=this.accesses[i];
@@ -86,7 +86,7 @@ public class InstanceInfo implements Serializable {
 	@SuppressWarnings("unchecked")
 	public InstanceInfo takeSnapshot(){
 		InstanceInfo clone = new InstanceInfo();
-		clone.interHopMap = (HashMap<Long, Long>) this.interHopMap.clone();
+		clone.globalTrafficMap = (HashMap<Long, Long>) this.globalTrafficMap.clone();
 		clone.accesses = accesses.clone();
 		return clone;
 	}
@@ -95,29 +95,18 @@ public class InstanceInfo implements Serializable {
 
 		if (rs.hasProperty("_isGhost") || rs.hasProperty("_isHalf")) {
 			// interhop on partitioned db
-			accesses[InfoKey.InterHop.ordinal()]++;
+			accesses[InfoKey.Glo_Traffic.ordinal()]++;
 			return;
 		}
-
-		// normal hop
-		accesses[InfoKey.IntraHop.ordinal()]++;
-
 	}
-
-	public void logHop(byte pos, Relationship rs) {
-		byte c1 = (Byte) rs.getStartNode().getProperty("_color");
-		byte c2 = (Byte) rs.getEndNode().getProperty("_color");
-
-		if (c1 == pos || c1 == c2) {
-			accesses[InfoKey.IntraHop.ordinal()]++;
-		} else {
-			accesses[InfoKey.InterHop.ordinal()]++;
-			long aim = c2;
-			if(interHopMap.containsKey(aim)){
-				interHopMap.put(aim, interHopMap.get(aim)+1);
-			}else{
-				interHopMap.put(aim, new Long(1));
-			}
+	
+	public void logInterComunication(byte to){
+		long aim = to;
+		accesses[InfoKey.Glo_Traffic.ordinal()]++;
+		if(globalTrafficMap.containsKey(aim)){
+			globalTrafficMap.put(aim, globalTrafficMap.get(aim)+1);
+		}else{
+			globalTrafficMap.put(aim, new Long(1));
 		}
-	}	
+	}
 }

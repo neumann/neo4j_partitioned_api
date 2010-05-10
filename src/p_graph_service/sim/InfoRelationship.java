@@ -16,6 +16,21 @@ public class InfoRelationship extends PRelaABS{
 	private long VERS;
 	private byte pos;
 	
+	public void logReadRelationship(byte curPos){
+		if(curPos!=pos){
+			inf.logInterComunication(curPos);
+			inf.log(InfoKey.Loc_Traffic);
+		}	
+	}
+	
+	public void logWriteRelationship(byte curPos){
+		if(curPos!=pos){
+			inf.logInterComunication(curPos);
+			db.getInstanceInfoFor(curPos).log(InfoKey.Loc_Traffic);
+		}
+	}
+	
+	
 	private byte findSelf(){
 		return (Byte)(rs.getStartNode().getProperty(PGraphDatabaseServiceSIM.col));
 	}
@@ -50,63 +65,66 @@ public class InfoRelationship extends PRelaABS{
 	public void delete() {
 		refresh();
 		log(InfoKey.rs_delete);
+		byte otherPos = (Byte) rs.getEndNode().getProperty(PGraphDatabaseServiceSIM.col);
+		logWriteRelationship(otherPos);
 		rs.delete();
 	}
 
 	@Override
 	public Node getEndNode() {
 		refresh();
-		log(InfoKey.Traffic);
-		inf.logHop(pos, rs);
-		return new InfoNode(rs.getEndNode(), db);
+		log(InfoKey.Loc_Traffic);
+		Node end = rs.getEndNode();
+		logWriteRelationship((Byte) end.getProperty(PGraphDatabaseServiceSIM.col));
+		return new InfoNode(end, db);
 	}
 
 	@Override
 	public long getId() {
 		refresh();
-		log(InfoKey.Traffic);
+		log(InfoKey.Loc_Traffic);
 		return rs.getId();
 	}
 
 	@Override
 	public Node[] getNodes() {
 		refresh();
-		log(InfoKey.Traffic);
-		Node[] n = rs.getNodes();
-		InfoNode[] res = new InfoNode[n.length];
-		for (int i = 0; i < n.length; i++) {
-			res[i] = new InfoNode(n[i], db);
-		}
-		return res;
+		Node[] n = new Node[2];
+		n[0] = getStartNode();
+		n[1] = getEndNode();
+		return n;
 	}
 
 	@Override
 	public Node getOtherNode(Node arg0) {
 		refresh();
-		inf.logHop(pos, rs);
-		log(InfoKey.Traffic);
-		return new InfoNode(rs.getOtherNode(((InfoNode) arg0).unwrap()), db);
+		if(arg0 == rs.getStartNode()){
+			return getEndNode();
+		}
+		if(arg0 == rs.getEndNode()){
+			return getStartNode();
+		}
+		return null;
 	}
 
 	@Override
 	public Node getStartNode() {
 		refresh();
-		inf.logHop(pos, rs);
-		log(InfoKey.Traffic);
+		log(InfoKey.Loc_Traffic);
 		return new InfoNode(rs.getStartNode(),db);
 	}
 
 	@Override
 	public RelationshipType getType() {
 		refresh();
-		log(InfoKey.Traffic);
+		log(InfoKey.Loc_Traffic);
 		return rs.getType();
 	}
 
 	@Override
 	public boolean isType(RelationshipType arg0) {
 		refresh();
-		log(InfoKey.Traffic);
+		log(InfoKey.Loc_Traffic);
 		return rs.isType(arg0);
 	}
 
@@ -118,14 +136,14 @@ public class InfoRelationship extends PRelaABS{
 	@Override
 	public Object getProperty(String arg0) {
 		refresh();
-		log(InfoKey.Traffic);
+		log(InfoKey.Loc_Traffic);
 		return rs.getProperty(arg0);
 	}
 
 	@Override
 	public Object getProperty(String arg0, Object arg1) {
 		refresh();
-		log(InfoKey.Traffic);
+		log(InfoKey.Loc_Traffic);
 		return rs.getProperty(arg0, arg1);
 	}
 
@@ -142,21 +160,21 @@ public class InfoRelationship extends PRelaABS{
 	@Override
 	public boolean hasProperty(String arg0) {
 		refresh();
-		log(InfoKey.Traffic);
+		log(InfoKey.Loc_Traffic);
 		return rs.hasProperty(arg0);
 	}
 
 	@Override
 	public Object removeProperty(String arg0) {
 		refresh();
-		log(InfoKey.Traffic);
+		log(InfoKey.Loc_Traffic);
 		return rs.removeProperty(arg0);
 	}
 
 	@Override
 	public void setProperty(String arg0, Object arg1) {
 		refresh();
-		log(InfoKey.Traffic);
+		log(InfoKey.Loc_Traffic);
 		rs.setProperty(arg0, arg1);
 	}
 }

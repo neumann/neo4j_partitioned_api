@@ -20,7 +20,6 @@ import org.neo4j.graphdb.event.KernelEventHandler;
 import org.neo4j.graphdb.event.TransactionEventHandler;
 import org.neo4j.kernel.EmbeddedGraphDatabase;
 
-import com.sleepycat.je.rep.NodeType;
 
 import p_graph_service.PConst;
 import p_graph_service.core.InstanceInfo.InfoKey;
@@ -44,16 +43,16 @@ public class DBInstanceContainer implements GraphDatabaseService {
 	
 	// traffic is define by: create Node, create Relationship, get Node, get Relationship,  delete Node, delete Relationship
 	public void logTraffic(){
-		info.log(InfoKey.Traffic);
+		info.log(InfoKey.Loc_Traffic);
 	}
 	
 	private void logExtTraffic(long instanceID){
-		if(info.interHopMap.containsKey(info.interHopMap)){
-			long count = info.interHopMap.get(instanceID);
+		if(info.globalTrafficMap.containsKey(info.globalTrafficMap)){
+			long count = info.globalTrafficMap.get(instanceID);
 			count ++;
-			info.interHopMap.put(instanceID, count);
+			info.globalTrafficMap.put(instanceID, count);
 		}else{
-			info.interHopMap.put(instanceID, new Long(1));
+			info.globalTrafficMap.put(instanceID, new Long(1));
 		}
 	}
 	
