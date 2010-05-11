@@ -178,15 +178,19 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 
 	@Override
 	public void moveNodes(Iterable<Node> nodes, long instanceID) {
+		// aim color
 		byte byteID = (byte) instanceID;
+		
 		if (INST.containsKey(byteID)) {
 			InstanceInfo aimInf = INST.get(byteID);
+			
 			for (Node n : nodes) {
 				Node uw = ((InfoNode) n).unwrap();
 				byte curPos = (Byte) uw.getProperty(col);
 				if (curPos == byteID) {
 					continue;
 				}
+				uw.setProperty(col, byteID);
 				InstanceInfo curInf = INST.get(curPos);
 				curInf.log(InfoKey.n_delete);
 				curInf.logMovementTo(byteID);
