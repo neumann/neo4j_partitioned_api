@@ -8,6 +8,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.io.Serializable;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -151,6 +152,7 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 			res[i] = (long) k;
 			i++;
 		}
+		Arrays.sort(res);
 		return res;
 	}
 

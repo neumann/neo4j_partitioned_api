@@ -34,7 +34,7 @@ public class InstanceInfo implements Serializable {
 	}
 	
 	public long getValue(InfoKey key){
-		return accesses[key.ordinal()]++;
+		return accesses[key.ordinal()];
 	}
 	
 	public void log( InfoKey key ){
