@@ -111,7 +111,9 @@ public class InfoNode extends PNodeABS{
 			Direction arg1) {
 		refresh();
 		log(InfoKey.Loc_Traffic);
-		InfoRelationship infRel = new InfoRelationship(n.getSingleRelationship(arg0, arg1),db);
+		Relationship rs = n.getSingleRelationship(arg0, arg1);
+		if(rs == null) return null;
+		InfoRelationship infRel = new InfoRelationship(rs,db);
 		infRel.logReadRelationship(pos);
 		return new InfoRelationship(n.getSingleRelationship(arg0, arg1),db);
 	}
