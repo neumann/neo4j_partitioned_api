@@ -51,7 +51,7 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 	}
 	
 	public PGraphDatabaseServiceSIM(String folder, long instID) {
-		initialize(folder, instID, "changeOpLog");
+		initialize(folder, instID, "changeOpLog.txt");
 	}
 
 	@SuppressWarnings("unchecked")
