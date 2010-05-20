@@ -2,11 +2,13 @@ package p_graph_service.sim;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
+import java.io.PrintStream;
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -32,17 +34,28 @@ import p_graph_service.policy.RandomPlacement;
 public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 	public final static String col = "_color";
 
-	private final long SERVICE_ID;
+	PrintStream log;
+	final String logDelim = ";";
+	private long SERVICE_ID;
 	private GraphDatabaseService db;
 	private PlacementPolicy placementPol;
-	protected long VERS;
+	long VERS;
 	// neo4j instances
 	public HashMap<Byte, InstanceInfo> INST;
 	// db folder
 	protected File DB_DIR;
+	
+	
+	public PGraphDatabaseServiceSIM(String folder, long instID, String file) {
+		initialize(folder, instID, file);
+	}
+	
+	public PGraphDatabaseServiceSIM(String folder, long instID) {
+		initialize(folder, instID, "changeOpLog");
+	}
 
 	@SuppressWarnings("unchecked")
-	public PGraphDatabaseServiceSIM(String folder, long instID) {
+	private void initialize(String folder, long instID, String log){
 		this.db = new EmbeddedGraphDatabase(folder);
 		this.SERVICE_ID = instID;
 
@@ -85,7 +98,7 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 					}
 
 					InstanceInfo instInf = INST.get(pos);
-					for (Relationship rel : n
+					for (@SuppressWarnings("unused") Relationship rel : n
 							.getRelationships(Direction.OUTGOING)) {
 						instInf.log(InfoKey.rs_create);
 					}
@@ -98,9 +111,19 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 
 		for (byte b : INST.keySet()) {
 			placementPol.addInstance(b, INST.get(b));
+		}	
+		
+		File f = new File(folder+"/"+log);
+		try {
+			this.log = new PrintStream(f);
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+			System.err.println("cant create log file");
 		}
-
 	}
+	
+	
+	
 
 	@Override
 	public boolean addInstance() {
@@ -132,6 +155,9 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 			INST.get(byteID).log(InfoKey.n_create);
 			Node n = db.createNode();
 			n.setProperty(col, byteID);
+			
+			// print to log
+			log.println("Add_Node"+logDelim+ n.getId() + logDelim + byteID);
 			return new InfoNode(n, this);
 		}
 		return null;
@@ -320,6 +346,8 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 			e.printStackTrace();
 		}
 		db.shutdown();
+		log.close();
+		
 	}
 
 	@Override
