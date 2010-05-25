@@ -44,76 +44,77 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 	public HashMap<Byte, InstanceInfo> INST;
 	// db folder
 	protected File DB_DIR;
-	
-	
+
 	public PGraphDatabaseServiceSIM(String folder, long instID, String file) {
-		initialize(folder, instID, file);
+		initialize(folder, instID, file, new RandomPlacement());
 	}
-	
+
 	public PGraphDatabaseServiceSIM(String folder, long instID) {
-		initialize(folder, instID, "changeOpLog.txt");
+		initialize(folder, instID, "changeOpLog.txt", new RandomPlacement());
+	}
+
+	public PGraphDatabaseServiceSIM(String folder, long instID, String file,
+			PlacementPolicy pol) {
+		initialize(folder, instID, file, pol);
+	}
+
+	public PGraphDatabaseServiceSIM(String folder, long instID,
+			PlacementPolicy pol) {
+		initialize(folder, instID, "changeOpLog.txt", pol);
 	}
 
 	@SuppressWarnings("unchecked")
-	private void initialize(String folder, long instID, String log){
+	private void initialize(String folder, long instID, String log,
+			PlacementPolicy pol) {
 		this.db = new EmbeddedGraphDatabase(folder);
 		this.SERVICE_ID = instID;
 
 		this.VERS = 0;
 		this.INST = new HashMap<Byte, InstanceInfo>();
 		this.DB_DIR = new File(folder);
-		this.placementPol = new RandomPlacement();
+		this.placementPol = pol;
 
 		// load stored meta information
 		try {
 			InputStream fips = new FileInputStream(new File(DB_DIR
 					.getAbsolutePath()
 					+ "/info"));
-
 			ObjectInputStream oips = new ObjectInputStream(fips);
 			this.INST = (HashMap<Byte, InstanceInfo>) oips.readObject();
-
 			oips.close();
 			fips.close();
 		} catch (Exception e) {
-			Transaction tx = beginTx();
-			try {
-				for (Node n : db.getAllNodes()) {
-					if (!n.hasProperty(col)){
-						n.delete();
-						continue;
-					}
-							
-					byte pos = (Byte) n.getProperty(col);
-					if (!INST.containsKey(pos)) {
-						InstanceInfo inf = new InstanceInfo();
-						inf.log(InfoKey.n_create);
-						inf.resetTraffic();
-						INST.put(pos, inf);
-					} else {
-						InstanceInfo inf = INST.get(pos);
-						inf.log(InfoKey.n_create);
-						inf.resetTraffic();
-						INST.put(pos, inf);
-					}
-
-					InstanceInfo instInf = INST.get(pos);
-					for (@SuppressWarnings("unused") Relationship rel : n
-							.getRelationships(Direction.OUTGOING)) {
-						instInf.log(InfoKey.rs_create);
-					}
+			for (Node n : db.getAllNodes()) {
+				Byte pos = (Byte) n.getProperty(col, null);
+				if (pos == null) {
+					throw new Error("Graph need to be colored! Can find " + col
+							+ " tag on " + n.getId());
 				}
-				tx.success();
-			} finally {
-				tx.finish();
+				
+				InstanceInfo inf = INST.get(pos);
+				if(inf == null){
+					inf = new InstanceInfo();
+				}
+				
+				for (@SuppressWarnings("unused")
+				Relationship rel : n.getRelationships(Direction.OUTGOING)) {
+					inf.log(InfoKey.rs_create);
+				}
+				
+				inf.log(InfoKey.n_create);
+				INST.put(pos, inf);	
+			}
+			
+			for(InstanceInfo inf : INST.values()){
+				inf.resetTraffic();	
 			}
 		}
 
 		for (byte b : INST.keySet()) {
 			placementPol.addInstance(b, INST.get(b));
-		}	
-		
-		File f = new File(folder+"/"+log);
+		}
+
+		File f = new File(folder + "/" + log);
 		try {
 			this.log = new PrintStream(f);
 		} catch (FileNotFoundException e) {
@@ -121,9 +122,6 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 			System.err.println("cant create log file");
 		}
 	}
-	
-	
-	
 
 	@Override
 	public boolean addInstance() {
@@ -155,9 +153,9 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 			INST.get(byteID).log(InfoKey.n_create);
 			Node n = db.createNode();
 			n.setProperty(col, byteID);
-			
+
 			// print to log
-			log.println("Add_Node"+logDelim+ n.getId() + logDelim + byteID);
+			log.println("Add_Node" + logDelim + n.getId() + logDelim + byteID);
 			return new InfoNode(n, this);
 		}
 		return null;
@@ -209,10 +207,10 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 	public void moveNodes(Iterable<Node> nodes, long instanceID) {
 		// aim color
 		byte byteID = (byte) instanceID;
-		
+
 		if (INST.containsKey(byteID)) {
 			InstanceInfo aimInf = INST.get(byteID);
-			
+
 			for (Node n : nodes) {
 				Node uw = ((InfoNode) n).unwrap();
 				byte curPos = (Byte) uw.getProperty(col);
@@ -347,7 +345,7 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 		}
 		db.shutdown();
 		log.close();
-		
+
 	}
 
 	@Override
