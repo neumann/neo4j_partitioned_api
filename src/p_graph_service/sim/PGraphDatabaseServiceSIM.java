@@ -62,6 +62,16 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 			PlacementPolicy pol) {
 		initialize(folder, instID, "changeOpLog.txt", pol);
 	}
+	
+	public void setChangeOpFolder(String file) {
+		try {
+			log.close();
+			File f = new File(file);
+			log = new PrintStream(f);
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+	}
 
 	@SuppressWarnings("unchecked")
 	private void initialize(String folder, long instID, String log,
