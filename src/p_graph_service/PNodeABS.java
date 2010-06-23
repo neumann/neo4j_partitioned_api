@@ -34,7 +34,7 @@ public abstract class PNodeABS implements Node , Comparable<Node>{
 		return false;
 	}
 	
-	@Override
+
 	public Expansion<Relationship> expand(RelationshipType arg0) {
 		throw new UnsupportedOperationException(
 		"Node.getGraphDatabase() not implemented");
@@ -42,7 +42,7 @@ public abstract class PNodeABS implements Node , Comparable<Node>{
 
 
 
-	@Override
+	
 	public Expansion<Relationship> expand(RelationshipExpander arg0) {
 		throw new UnsupportedOperationException(
 		"Node.getGraphDatabase() not implemented");
@@ -50,7 +50,7 @@ public abstract class PNodeABS implements Node , Comparable<Node>{
 
 
 
-	@Override
+	
 	public Expansion<Relationship> expand(RelationshipType arg0, Direction arg1) {
 		throw new UnsupportedOperationException(
 		"Node.getGraphDatabase() not implemented");
@@ -58,7 +58,7 @@ public abstract class PNodeABS implements Node , Comparable<Node>{
 
 
 
-	@Override
+	
 	public Expansion<Relationship> expandAll() {
 		throw new UnsupportedOperationException(
 		"Node.getGraphDatabase() not implemented");
