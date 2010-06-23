@@ -238,7 +238,7 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 				}
 			}
 			// "delete" node
-			log.println("Del_Node"+logDelim+n.getId());
+			log.println("Del_Node"+logDelim+uw.getId());
 			curInf.log(InfoKey.n_delete);
 			curInf.logMovementTo(byteID);
 		}
@@ -254,6 +254,7 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 		}
 		
 		for (Relationship rs : delRel) {
+			rs = ((InfoRelationship)rs).unwrap();
 			Node sNode = rs.getStartNode();
 			Node eNode = rs.getEndNode();
 			Byte pos = (Byte)sNode.getProperty(col);
