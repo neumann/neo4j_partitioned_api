@@ -35,7 +35,7 @@ import p_graph_service.policy.RandomPlacement;
 public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 	public final static String col = "_color";
 
-	String logFileName;
+	File changeLogFile;
 	PrintStream log;
 	final String logDelim = ";";
 	private long SERVICE_ID;
@@ -68,6 +68,12 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 	@SuppressWarnings("unchecked")
 	private void initialize(String folder, long instID, String log,
 			PlacementPolicy pol) {
+		boolean newDB = false;
+		File f = new File(folder);
+		if(!f.exists()){
+			newDB = true;
+		}
+		
 		this.db = new EmbeddedGraphDatabase(folder);
 		this.SERVICE_ID = instID;
 
@@ -76,6 +82,17 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 		this.DB_DIR = new File(folder);
 		this.placementPol = pol;
 
+		// delete reference node if its a new db 
+		if(newDB){
+			Transaction tx = db.beginTx();
+			try {
+				db.getReferenceNode().delete();
+				tx.success();
+			} finally{ 
+				tx.finish();
+			}
+		}
+		
 		// load stored meta information
 		try {
 			InputStream fips = new FileInputStream(new File(DB_DIR
@@ -89,9 +106,8 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 			for (Node n : db.getAllNodes()) {
 				Byte pos = (Byte) n.getProperty(col, null);
 				if (pos == null) {
-					System.out.println("Graph need to be colored! Can find " + col
-							+ " tag on " + n.getId() + "deleting that node");
-					n.delete();
+					throw new Error("Graph need to be colored! Can find " + col
+							+ " tag on " + n.getId());
 				}
 				
 				InstanceInfo inf = INST.get(pos);
@@ -117,9 +133,9 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 			placementPol.addInstance(b, INST.get(b));
 		}
 
-		File f = new File(folder + "/" + log);
+		changeLogFile = new File(folder + "/" + log);
 		try {
-			this.log = new PrintStream(f);
+			this.log = new PrintStream(changeLogFile);
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 			System.err.println("cant create log file");
@@ -445,11 +461,10 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 
 	@Override
 	public void setDBChangeLog(String file) {
-		logFileName = file;
 		try {
 			log.close();
-			File f = new File(file);
-			log = new PrintStream(f);
+			changeLogFile = new File(file);
+			log = new PrintStream(changeLogFile);
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		}		
@@ -457,7 +472,7 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 
 	@Override
 	public String getDBChangeLog() {
-		return logFileName;
+		return changeLogFile.getAbsolutePath();
 	}
 
 }
