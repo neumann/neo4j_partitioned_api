@@ -1,5 +1,7 @@
 package p_graph_service;
 
+import java.io.File;
+
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Node;
 
@@ -33,6 +35,10 @@ public interface PGraphDatabaseService extends GraphDatabaseService {
 	public Node createNodeOn(long instanceID);
 	public Node createNodeOn(long GID, long instanceID);
 	public void moveNodes(Iterable<Node> nodes, long instanceID);
+	
+	// folder for read write log
+	public void setDBChangeLog(String file);
+	public String getDBChangeLog();
 	
 //	public Node getNodeByPos(long[] pos );
 //	public Relationship getRelaByPos(long[] pos );

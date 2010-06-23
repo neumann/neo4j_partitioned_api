@@ -12,9 +12,11 @@ import java.util.Set;
 import java.util.Vector;
 
 import org.neo4j.graphdb.Direction;
+import org.neo4j.graphdb.Expansion;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.NotInTransactionException;
 import org.neo4j.graphdb.Relationship;
+import org.neo4j.graphdb.RelationshipExpander;
 import org.neo4j.graphdb.RelationshipType;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.graphdb.event.KernelEventHandler;
@@ -32,10 +34,10 @@ import p_graph_service.policy.RandomPlacement;
 public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 	private final long SERVICE_ID;
 	private PlacementPolicy placementPol;
-	
+
 	protected long VERS;
 	// neo4j instances
-	public HashMap<Long,DBInstanceContainer>INST;
+	public HashMap<Long, DBInstanceContainer> INST;
 	// berkley db lookup service
 	protected GIDLookup INDEX;
 	// GID generator (basically copy of the neo4j version)
@@ -46,7 +48,6 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 	// transaction support
 	protected PTransaction PTX = null;
 
-	
 	private Node findGhostForNode(Node node, long instance) {
 		Node res = null;
 
@@ -56,21 +57,21 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 			if (rs.hasProperty(PConst.IsHalf)) {
 				long[] pos = (long[]) rs.getProperty(PConst.IsHalf);
 				if (pos[1] == instance) {
-					res = INST.get(pos[1])
-							.getRelationshipById(pos[2]).getStartNode();
+					res = INST.get(pos[1]).getRelationshipById(pos[2])
+							.getStartNode();
 				}
 			} else if (rs.hasProperty(PConst.IsGhost)) {
 				long[] pos = (long[]) rs.getProperty(PConst.IsGhost);
 				if (pos[1] == instance) {
-					res = INST.get(pos[1])
-							.getRelationshipById(pos[2]).getEndNode();
+					res = INST.get(pos[1]).getRelationshipById(pos[2])
+							.getEndNode();
 				}
 			}
 		}
 		return res;
 	}
-	
-	private void startup(String path){
+
+	private void startup(String path) {
 		this.VERS = 0;
 		this.INST = new HashMap<Long, DBInstanceContainer>();
 
@@ -81,7 +82,7 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 		if (!DB_DIR.exists()) {
 			DB_DIR.mkdirs();
 		}
-		
+
 		// list DBinstances
 		File[] instances = DB_DIR.listFiles(new FileFilter() {
 			public boolean accept(File file) {
@@ -93,47 +94,52 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 		// create found instances
 		for (File inst : instances) {
 			long instID = Long.parseLong(inst.getName().substring(8));
-			DBInstanceContainer instContainer = new DBInstanceContainer(inst.getPath(), instID); 
+			DBInstanceContainer instContainer = new DBInstanceContainer(inst
+					.getPath(), instID);
 			INST.put(instID, instContainer);
 		}
-		
-		//TODO save an load ID in a right way
-		File gidStoreNode = new File(path+"/"+PConst.nGID);
+
+		// TODO save an load ID in a right way
+		File gidStoreNode = new File(path + "/" + PConst.nGID);
 		try {
-			GIDGenNode = new IdGeneratorImpl(gidStoreNode.getAbsolutePath(), 100);
+			GIDGenNode = new IdGeneratorImpl(gidStoreNode.getAbsolutePath(),
+					100);
 		} catch (Exception e) {
 			gidStoreNode.delete();
 			IdGeneratorImpl.createGenerator(gidStoreNode.getAbsolutePath());
-			//TODO rebuild generator
-			GIDGenNode = new IdGeneratorImpl(gidStoreNode.getAbsolutePath(), 100);
+			// TODO rebuild generator
+			GIDGenNode = new IdGeneratorImpl(gidStoreNode.getAbsolutePath(),
+					100);
 		}
-		
-		File gidStoreRela = new File(path+"/"+PConst.rGID);
+
+		File gidStoreRela = new File(path + "/" + PConst.rGID);
 		try {
-			GIDGenRela = new IdGeneratorImpl(gidStoreRela.getAbsolutePath(), 100);
+			GIDGenRela = new IdGeneratorImpl(gidStoreRela.getAbsolutePath(),
+					100);
 		} catch (Exception e) {
 			gidStoreRela.delete();
 			IdGeneratorImpl.createGenerator(gidStoreRela.getAbsolutePath());
-			//TODO rebuild generator
-			GIDGenRela = new IdGeneratorImpl(gidStoreRela.getAbsolutePath(), 100);
+			// TODO rebuild generator
+			GIDGenRela = new IdGeneratorImpl(gidStoreRela.getAbsolutePath(),
+					100);
 		}
-		
+
 		// lookup service
-		INDEX = new BDB_GIDLookupImpl(path+"/BDB");
+		INDEX = new BDB_GIDLookupImpl(path + "/BDB");
 	}
 
 	// if no instance is found it is an empty container
 	public PGraphDatabaseServiceImpl(String path, long id) {
 
 		this.VERS = 0;
-		
+
 		this.SERVICE_ID = id;
-		
+
 		startup(path);
-	
+
 		// TODO put policy to a setting file
 		this.placementPol = new RandomPlacement();
-		for (long k: INST.keySet()) {
+		for (long k : INST.keySet()) {
 			placementPol.addInstance(k, getInstanceInfoFor(k));
 		}
 	}
@@ -142,7 +148,7 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 	public PlacementPolicy getPlacementPolicy() {
 		return placementPol;
 	}
-	
+
 	@Override
 	public void setPlacementPolicy(PlacementPolicy pol) {
 		this.placementPol = pol;
@@ -152,7 +158,7 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 	public long getServiceID() {
 		return SERVICE_ID;
 	}
-	
+
 	@Override
 	public boolean removeInstance(long id) {
 		// TODO not tested will screw up reference node
@@ -184,7 +190,7 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 		}
 		return false;
 	}
-	
+
 	@Override
 	public long[] getInstancesIDs() {
 		long[] res = new long[INST.keySet().size()];
@@ -208,7 +214,7 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 			throw new NotInTransactionException();
 		return createNodeOn(gid, placementPol.getPosition());
 	}
-	
+
 	@Override
 	public Node createNodeOn(long instanceID) {
 		if (PTX == null)
@@ -217,14 +223,14 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 		long gid = createGID();
 		return createNodeOn(gid, instanceID);
 	}
-	
+
 	@Override
 	public Node createNode() {
 		if (PTX == null)
 			throw new NotInTransactionException();
 		return createNodeOn(placementPol.getPosition());
 	}
-	
+
 	@Override
 	// forms iterator internally to list so it can run out of heapspace
 	public void moveNodes(Iterable<Node> partitionedNodes, long instanceID) {
@@ -335,8 +341,8 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 							// find new start node for ghost relationship if
 							// existing
 							Node newGRelStartNode = null;
-							newGRelStartNode = findGhostForNode(
-									hRelStartNode, instanceID);
+							newGRelStartNode = findGhostForNode(hRelStartNode,
+									instanceID);
 							// create ghost node if not existing
 							if (newGRelStartNode == null) {
 								newGRelStartNode = INST.get(instanceID)
@@ -378,11 +384,9 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 					sNodePos[2] = sNode.getId();
 
 					// find the new Start node or create it if not existing
-					Node newGRelStartNode = findGhostForNode(sNode,
-							instanceID);
+					Node newGRelStartNode = findGhostForNode(sNode, instanceID);
 					if (newGRelStartNode == null) {
-						newGRelStartNode = INST.get(instanceID)
-								.createNode();
+						newGRelStartNode = INST.get(instanceID).createNode();
 						newGRelStartNode.setProperty(PConst.nGID, sNode
 								.getProperty(PConst.nGID));
 						newGRelStartNode.setProperty(PConst.IsGhost, sNodePos);
@@ -472,12 +476,10 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 						// find the new end node or create it if not existing
 						long[] eNodePos = (long[]) eNode
 								.getProperty(PConst.IsGhost);
-						Node newENode = findGhostForNode(INST
-								.get(eNodePos[1]).getNodeById(eNodePos[2]),
-								instanceID);
+						Node newENode = findGhostForNode(INST.get(eNodePos[1])
+								.getNodeById(eNodePos[2]), instanceID);
 						if (newENode == null) {
-							newENode = INST.get(instanceID)
-									.createNode();
+							newENode = INST.get(instanceID).createNode();
 							newENode.setProperty(PConst.nGID, eNode
 									.getProperty(PConst.nGID));
 							newENode.setProperty(PConst.IsGhost, eNode
@@ -496,8 +498,7 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 						newRsPos[1] = aimPos[1];
 						newRsPos[2] = newRS.getId();
 						gRel.setProperty(PConst.IsGhost, newRsPos);
-						gRel.getStartNode()
-								.setProperty(PConst.IsGhost, aimPos);
+						gRel.getStartNode().setProperty(PConst.IsGhost, aimPos);
 
 						rs.delete();
 					}
@@ -514,8 +515,8 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 					if (eNode.hasProperty(PConst.IsGhost)) {
 						long[] newENodePos = (long[]) eNode
 								.getProperty(PConst.IsGhost);
-						Node newENode = INST.get(newENodePos[1])
-								.getNodeById(newENodePos[2]);
+						Node newENode = INST.get(newENodePos[1]).getNodeById(
+								newENodePos[2]);
 						Relationship newRS = aimN.createRelationshipTo(
 								newENode, rs.getType());
 						rs.removeProperty(PConst.IsHalf);
@@ -536,11 +537,9 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 					// to be created
 					else {
 						// find the new Start node or create it if not existing
-						Node newENode = findGhostForNode(eNode,
-								instanceID);
+						Node newENode = findGhostForNode(eNode, instanceID);
 						if (newENode == null) {
-							newENode = INST.get(instanceID)
-									.createNode();
+							newENode = INST.get(instanceID).createNode();
 							newENode.setProperty(PConst.nGID, eNode
 									.getProperty(PConst.nGID));
 							newENode.setProperty(PConst.IsGhost, eNodePos);
@@ -568,8 +567,7 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 				}
 
 				// update lookup
-				INDEX.addRela((Long) rs.getProperty(PConst.rGID),
-						newRsPos);
+				INDEX.addRela((Long) rs.getProperty(PConst.rGID), newRsPos);
 				INST.get(newRsPos[1]).logAddRela();
 				INST.get(curPos[1]).logAddRela();
 
@@ -595,8 +593,6 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 		VERS++;
 	}
 
-	
-
 	@Override
 	public Transaction beginTx() {
 		if (PTX == null) {
@@ -604,8 +600,6 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 		}
 		return PTX;
 	}
-
-	
 
 	@Override
 	public boolean enableRemoteShell() {
@@ -654,10 +648,10 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 		if (PTX == null)
 			throw new NotInTransactionException();
 
-		// create reference node if not existing 
-		if( INDEX.findNode(0)== null && !INST.isEmpty()){ 
+		// create reference node if not existing
+		if (INDEX.findNode(0) == null && !INST.isEmpty()) {
 			long instID = this.getInstancesIDs()[0];
-			this.createNodeOn(0, instID); 
+			this.createNodeOn(0, instID);
 		}
 		return this.getNodeById(0);
 	}
@@ -670,7 +664,8 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 		if (adr[0] == getServiceID() && INST.containsKey(adr[1])) {
 			// create transaction if not yet existing
 			PTX.registerResource(adr[1]);
-			return new PRelation(INST.get(adr[1]).getRelationshipById(adr[2]), this);
+			return new PRelation(INST.get(adr[1]).getRelationshipById(adr[2]),
+					this);
 		}
 		return null;
 	}
@@ -720,7 +715,8 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 		private PGraphDatabaseServiceImpl pdb;
 		private Set<Iterable<Node>> joined;
 
-		public JoinedIterable(Set<Iterable<Node>> joined, PGraphDatabaseServiceImpl db) {
+		public JoinedIterable(Set<Iterable<Node>> joined,
+				PGraphDatabaseServiceImpl db) {
 			this.joined = joined;
 		}
 
@@ -743,7 +739,8 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 		private Iterator<Node> curIter = null;
 		private Node item = null;
 
-		public JoinedIterator(Set<Iterator<Node>> joined, PGraphDatabaseServiceImpl db) {
+		public JoinedIterator(Set<Iterator<Node>> joined,
+				PGraphDatabaseServiceImpl db) {
 			this.pdb = db;
 			this.joined = joined;
 		}
@@ -812,11 +809,10 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 
 		return new PNode(n, this);
 	}
-	
+
 	@Override
 	public boolean addInstance(long id) {
-		String folder = DB_DIR.getAbsolutePath() + "/" + "instance"
-				+ id;
+		String folder = DB_DIR.getAbsolutePath() + "/" + "instance" + id;
 		DBInstanceContainer instContainer = new DBInstanceContainer(folder, id);
 		// delete reference node
 		Transaction tx = instContainer.beginTx();
@@ -829,29 +825,33 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 		INST.put(id, instContainer);
 		placementPol.addInstance(id, instContainer.getInfo());
 		return true;
-	}	
+	}
 
 	@Override
 	public KernelEventHandler registerKernelEventHandler(KernelEventHandler arg0) {
-		throw new UnsupportedOperationException("Node.getGraphDatabase() not implemented");
+		throw new UnsupportedOperationException(
+				"Node.getGraphDatabase() not implemented");
 	}
 
 	@Override
 	public <T> TransactionEventHandler<T> registerTransactionEventHandler(
 			TransactionEventHandler<T> arg0) {
-		throw new UnsupportedOperationException("Node.getGraphDatabase() not implemented");
+		throw new UnsupportedOperationException(
+				"Node.getGraphDatabase() not implemented");
 	}
 
 	@Override
 	public KernelEventHandler unregisterKernelEventHandler(
 			KernelEventHandler arg0) {
-		throw new UnsupportedOperationException("Node.getGraphDatabase() not implemented");
+		throw new UnsupportedOperationException(
+				"Node.getGraphDatabase() not implemented");
 	}
 
 	@Override
 	public <T> TransactionEventHandler<T> unregisterTransactionEventHandler(
 			TransactionEventHandler<T> arg0) {
-		throw new UnsupportedOperationException("Node.getGraphDatabase() not implemented");
+		throw new UnsupportedOperationException(
+				"Node.getGraphDatabase() not implemented");
 	}
 
 	@Override
@@ -861,7 +861,7 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 
 	@Override
 	public void resetLogging() {
-		for(DBInstanceContainer cont : INST.values()){
+		for (DBInstanceContainer cont : INST.values()) {
 			cont.resetTraffic();
 		}
 	}
@@ -870,5 +870,20 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 	public void resetLoggingOn(long id) {
 		INST.get(id).resetTraffic();
 	}
+
+	@Override
+	public void setDBChangeLog(String file) {
+		throw new UnsupportedOperationException(
+		"Node.getGraphDatabase() not implemented");
+	}
+
+	@Override
+	public String getDBChangeLog() {
+		throw new UnsupportedOperationException(
+		"Node.getGraphDatabase() not implemented");
+	}
+	
+
+	
 
 }

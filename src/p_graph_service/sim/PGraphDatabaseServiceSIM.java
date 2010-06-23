@@ -14,6 +14,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.TreeSet;
 
 import org.neo4j.graphdb.Direction;
 import org.neo4j.graphdb.GraphDatabaseService;
@@ -34,6 +35,7 @@ import p_graph_service.policy.RandomPlacement;
 public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 	public final static String col = "_color";
 
+	String logFileName;
 	PrintStream log;
 	final String logDelim = ";";
 	private long SERVICE_ID;
@@ -62,16 +64,6 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 			PlacementPolicy pol) {
 		initialize(folder, instID, "changeOpLog.txt", pol);
 	}
-	
-	public void setChangeOpFolder(String file) {
-		try {
-			log.close();
-			File f = new File(file);
-			log = new PrintStream(f);
-		} catch (FileNotFoundException e) {
-			e.printStackTrace();
-		}
-	}
 
 	@SuppressWarnings("unchecked")
 	private void initialize(String folder, long instID, String log,
@@ -97,8 +89,9 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 			for (Node n : db.getAllNodes()) {
 				Byte pos = (Byte) n.getProperty(col, null);
 				if (pos == null) {
-					throw new Error("Graph need to be colored! Can find " + col
-							+ " tag on " + n.getId());
+					System.out.println("Graph need to be colored! Can find " + col
+							+ " tag on " + n.getId() + "deleting that node");
+					n.delete();
 				}
 				
 				InstanceInfo inf = INST.get(pos);
@@ -217,25 +210,58 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 	public void moveNodes(Iterable<Node> nodes, long instanceID) {
 		// aim color
 		byte byteID = (byte) instanceID;
-
-		if (INST.containsKey(byteID)) {
-			InstanceInfo aimInf = INST.get(byteID);
-
-			for (Node n : nodes) {
-				Node uw = ((InfoNode) n).unwrap();
-				byte curPos = (Byte) uw.getProperty(col);
-				if (curPos == byteID) {
-					continue;
+		// invalid instance id
+		if(!INST.containsKey(byteID))return;
+	
+		// used to enforce that no node is "deleted" multiple times
+		TreeSet<Relationship> delRel = new TreeSet<Relationship>();
+		InstanceInfo aimInf = INST.get(byteID);
+		for (Node n : nodes) {
+			
+			Node uw = ((InfoNode) n).unwrap();
+			byte curPos = (Byte) uw.getProperty(col);
+			
+			// "delete" all outgoing relations
+			InstanceInfo curInf = INST.get(curPos);
+			for(Relationship rs : n.getRelationships(Direction.OUTGOING)){
+				if(!delRel.contains(rs.getId())){
+					delRel.add(rs);
+					log.println("Del_Rel"+logDelim+rs.getId());
+					curInf.log(InfoKey.rs_delete);
 				}
-				uw.setProperty(col, byteID);
-				InstanceInfo curInf = INST.get(curPos);
-				curInf.log(InfoKey.n_delete);
-				curInf.logMovementTo(byteID);
-				uw.setProperty(col, byteID);
-				aimInf.log(InfoKey.n_create);
 			}
-			VERS++;
+			// "delete" all incoming relations
+			for(Relationship rs : n.getRelationships(Direction.INCOMING)){
+				if(!delRel.contains(rs.getId())){
+					delRel.add(((InfoRelationship)rs).unwrap());
+					log.println("Del_Rel"+logDelim+rs.getId());
+				}
+			}
+			// "delete" node
+			log.println("Del_Node"+logDelim+n.getId());
+			curInf.log(InfoKey.n_delete);
+			curInf.logMovementTo(byteID);
 		}
+		
+		for(Node n : nodes){
+			// node does not need to be moved
+			Node uw = ((InfoNode) n).unwrap();
+						
+			// "add" the node
+			log.println("Add_Node" + logDelim + uw.getId() + logDelim + byteID);
+			aimInf.log(InfoKey.n_create);
+			uw.setProperty(col, byteID);
+		}
+		
+		for (Relationship rs : delRel) {
+			Node sNode = rs.getStartNode();
+			Node eNode = rs.getEndNode();
+			Byte pos = (Byte)sNode.getProperty(col);
+			INST.get(pos).log(InfoKey.rs_create);
+			log.println("Add_Rel" + logDelim+rs.getId()+logDelim+sNode.getId()+logDelim+eNode.getId());
+		}
+		
+		VERS++;
 	}
 
 	@Override
@@ -414,6 +440,23 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 		public void remove() {
 			iter.remove();
 		}
+	}
+
+	@Override
+	public void setDBChangeLog(String file) {
+		logFileName = file;
+		try {
+			log.close();
+			File f = new File(file);
+			log = new PrintStream(f);
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}		
+	}
+
+	@Override
+	public String getDBChangeLog() {
+		return logFileName;
 	}
 
 }
