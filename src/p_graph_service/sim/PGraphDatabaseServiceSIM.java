@@ -68,12 +68,7 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 	@SuppressWarnings("unchecked")
 	private void initialize(String folder, long instID, String log,
 			PlacementPolicy pol) {
-		boolean newDB = false;
-		File f = new File(folder);
-		if(!f.exists()){
-			newDB = true;
-		}
-		
+
 		this.db = new EmbeddedGraphDatabase(folder);
 		this.SERVICE_ID = instID;
 
@@ -82,17 +77,6 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 		this.DB_DIR = new File(folder);
 		this.placementPol = pol;
 
-		// delete reference node if its a new db 
-		if(newDB){
-			Transaction tx = db.beginTx();
-			try {
-				db.getReferenceNode().delete();
-				tx.success();
-			} finally{ 
-				tx.finish();
-			}
-		}
-		
 		// load stored meta information
 		try {
 			InputStream fips = new FileInputStream(new File(DB_DIR
@@ -103,29 +87,41 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 			oips.close();
 			fips.close();
 		} catch (Exception e) {
-			for (Node n : db.getAllNodes()) {
-				Byte pos = (Byte) n.getProperty(col, null);
-				if (pos == null) {
-					throw new Error("Graph need to be colored! Can find " + col
-							+ " tag on " + n.getId());
+			// cant read metha info -> create it
+			Transaction tx = db.beginTx();
+			try {
+
+				for (Node n : db.getAllNodes()) {
+					Byte pos = (Byte) n.getProperty(col, null);
+					if (pos == null) {
+						if (INST.size() == 0) {
+							addInstance();
+						}
+						pos = new Byte((byte) placementPol.getPosition());
+						n.setProperty(col, pos);
+						System.out.println(n.getId()
+								+ " didnt had a color and was put to " + pos);
+					}
+					InstanceInfo inf = INST.get(pos);
+					if (inf == null) {
+						inf = new InstanceInfo();
+					}
+
+					for (@SuppressWarnings("unused")
+					Relationship rel : n.getRelationships(Direction.OUTGOING)) {
+						inf.log(InfoKey.rs_create);
+					}
+
+					inf.log(InfoKey.n_create);
+					INST.put(pos, inf);
 				}
-				
-				InstanceInfo inf = INST.get(pos);
-				if(inf == null){
-					inf = new InstanceInfo();
-				}
-				
-				for (@SuppressWarnings("unused")
-				Relationship rel : n.getRelationships(Direction.OUTGOING)) {
-					inf.log(InfoKey.rs_create);
-				}
-				
-				inf.log(InfoKey.n_create);
-				INST.put(pos, inf);	
+				tx.success();
+			} finally {
+				tx.finish();
 			}
-			
-			for(InstanceInfo inf : INST.values()){
-				inf.resetTraffic();	
+
+			for (InstanceInfo inf : INST.values()) {
+				inf.resetTraffic();
 			}
 		}
 
@@ -149,13 +145,17 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 			if (high <= b)
 				high++;
 		}
-		INST.put(high, new InstanceInfo());
+		InstanceInfo inf = new InstanceInfo();
+		INST.put(high, inf);
+		placementPol.addInstance((long) high, inf);
 		return true;
 	}
 
 	@Override
 	public boolean addInstance(long id) {
-		INST.put((byte) id, new InstanceInfo());
+		InstanceInfo inf = new InstanceInfo();
+		INST.put((byte) id, inf);
+		placementPol.addInstance(id, inf);
 		return true;
 	}
 
@@ -227,57 +227,59 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 		// aim color
 		byte byteID = (byte) instanceID;
 		// invalid instance id
-		if(!INST.containsKey(byteID))return;
-	
+		if (!INST.containsKey(byteID))
+			return;
+
 		// used to enforce that no node is "deleted" multiple times
 		TreeSet<Relationship> delRel = new TreeSet<Relationship>();
 		InstanceInfo aimInf = INST.get(byteID);
 		for (Node n : nodes) {
-			
+
 			Node uw = ((InfoNode) n).unwrap();
 			byte curPos = (Byte) uw.getProperty(col);
-			
+
 			// "delete" all outgoing relations
 			InstanceInfo curInf = INST.get(curPos);
-			for(Relationship rs : n.getRelationships(Direction.OUTGOING)){
-				if(!delRel.contains(rs.getId())){
+			for (Relationship rs : n.getRelationships(Direction.OUTGOING)) {
+				if (!delRel.contains(rs.getId())) {
 					delRel.add(rs);
-					log.println("Del_Rel"+logDelim+rs.getId());
+					log.println("Del_Rel" + logDelim + rs.getId());
 					curInf.log(InfoKey.rs_delete);
 				}
 			}
 			// "delete" all incoming relations
-			for(Relationship rs : n.getRelationships(Direction.INCOMING)){
-				if(!delRel.contains(rs.getId())){
-					delRel.add(((InfoRelationship)rs).unwrap());
-					log.println("Del_Rel"+logDelim+rs.getId());
+			for (Relationship rs : n.getRelationships(Direction.INCOMING)) {
+				if (!delRel.contains(rs)) {
+					delRel.add(((InfoRelationship) rs).unwrap());
+					log.println("Del_Rel" + logDelim + rs.getId());
 				}
 			}
 			// "delete" node
-			log.println("Del_Node"+logDelim+uw.getId());
+			log.println("Del_Node" + logDelim + uw.getId());
 			curInf.log(InfoKey.n_delete);
 			curInf.logMovementTo(byteID);
 		}
-		
-		for(Node n : nodes){
+
+		for (Node n : nodes) {
 			// node does not need to be moved
 			Node uw = ((InfoNode) n).unwrap();
-						
+
 			// "add" the node
 			log.println("Add_Node" + logDelim + uw.getId() + logDelim + byteID);
 			aimInf.log(InfoKey.n_create);
 			uw.setProperty(col, byteID);
 		}
-		
+
 		for (Relationship rs : delRel) {
-			rs = ((InfoRelationship)rs).unwrap();
+			rs = ((InfoRelationship) rs).unwrap();
 			Node sNode = rs.getStartNode();
 			Node eNode = rs.getEndNode();
-			Byte pos = (Byte)sNode.getProperty(col);
+			Byte pos = (Byte) sNode.getProperty(col);
 			INST.get(pos).log(InfoKey.rs_create);
-			log.println("Add_Rel" + logDelim+rs.getId()+logDelim+sNode.getId()+logDelim+eNode.getId());
+			log.println("Add_Rel" + logDelim + rs.getId() + logDelim
+					+ sNode.getId() + logDelim + eNode.getId());
 		}
-		
+
 		VERS++;
 	}
 
@@ -287,6 +289,7 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 		if (INST.containsKey(id)) {
 			if (INST.get(byteID).getValue(InfoKey.NumNodes) == 0) {
 				INST.remove(byteID);
+				placementPol.removeInstance(id);
 				return true;
 			}
 		}
@@ -467,7 +470,7 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 			log = new PrintStream(changeLogFile);
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
-		}		
+		}
 	}
 
 	@Override
