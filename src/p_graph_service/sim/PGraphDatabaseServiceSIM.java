@@ -241,17 +241,19 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 			// "delete" all outgoing relations
 			InstanceInfo curInf = INST.get(curPos);
 			for (Relationship rs : n.getRelationships(Direction.OUTGOING)) {
-				if (!delRel.contains(rs.getId())) {
+				Relationship uwrs = ((InfoRelationship)rs).unwrap(); 
+				if (!delRel.contains(rs)) {
 					delRel.add(rs);
-					log.println("Del_Rel" + logDelim + rs.getId());
+					log.println("Del_Rel" + logDelim + uwrs.getId());
 					curInf.log(InfoKey.rs_delete);
 				}
 			}
 			// "delete" all incoming relations
 			for (Relationship rs : n.getRelationships(Direction.INCOMING)) {
+				Relationship uwrs = ((InfoRelationship)rs).unwrap(); 
 				if (!delRel.contains(rs)) {
-					delRel.add(((InfoRelationship) rs).unwrap());
-					log.println("Del_Rel" + logDelim + rs.getId());
+					delRel.add(rs);
+					log.println("Del_Rel" + logDelim + uwrs.getId());
 				}
 			}
 			// "delete" node
@@ -271,7 +273,7 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 		}
 
 		for (Relationship rs : delRel) {
-			rs = ((InfoRelationship) rs).unwrap();
+			rs = ((InfoRelationship)rs).unwrap();
 			Node sNode = rs.getStartNode();
 			Node eNode = rs.getEndNode();
 			Byte pos = (Byte) sNode.getProperty(col);
