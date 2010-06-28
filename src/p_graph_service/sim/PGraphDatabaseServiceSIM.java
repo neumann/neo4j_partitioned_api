@@ -171,7 +171,7 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 			INST.get(byteID).log(InfoKey.Loc_Traffic);
 			INST.get(byteID).log(InfoKey.n_create);
 			Node n = db.createNode();
-			n.setProperty(col, byteID);
+			n.setProperty(col, new Byte(byteID));
 
 			// print to log
 			log.println("Add_Node" + logDelim + n.getId() + logDelim + byteID);
@@ -269,7 +269,7 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 			// "add" the node
 			log.println("Add_Node" + logDelim + uw.getId() + logDelim + byteID);
 			aimInf.log(InfoKey.n_create);
-			uw.setProperty(col, byteID);
+			uw.setProperty(col, new Byte(byteID));
 		}
 
 		for (Relationship rs : delRel) {

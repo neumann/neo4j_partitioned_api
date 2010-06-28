@@ -29,7 +29,10 @@ public class InfoNode extends PNodeABS{
 	
 	
 	private byte findSelf(){
-		return (Byte)(n.getProperty(PGraphDatabaseServiceSIM.col));
+		Byte res = null;
+		res = (Byte)(n.getProperty(PGraphDatabaseServiceSIM.col, null));
+		if(res == null)throw new Error("Node "+ n.getId() + "not colored");
+		return res;
 	}
 	
 	private void refresh(){
