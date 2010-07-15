@@ -12,11 +12,9 @@ import java.util.Set;
 import java.util.Vector;
 
 import org.neo4j.graphdb.Direction;
-import org.neo4j.graphdb.Expansion;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.NotInTransactionException;
 import org.neo4j.graphdb.Relationship;
-import org.neo4j.graphdb.RelationshipExpander;
 import org.neo4j.graphdb.RelationshipType;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.graphdb.event.KernelEventHandler;
@@ -25,10 +23,11 @@ import org.neo4j.kernel.impl.nioneo.store.IdGenerator;
 import org.neo4j.kernel.impl.nioneo.store.IdGeneratorImpl;
 
 import p_graph_service.GIDLookup;
+import p_graph_service.InstanceInfo;
 import p_graph_service.PConst;
 import p_graph_service.PGraphDatabaseService;
 import p_graph_service.PlacementPolicy;
-import p_graph_service.core.InstanceInfo.InfoKey;
+import p_graph_service.InstanceInfo.InfoKey;
 import p_graph_service.policy.RandomPlacement;
 
 public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
@@ -180,15 +179,16 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 	// NOTE untested need to be rewritten since it might not work according to
 	// concept either
 	public boolean migrateInstance(String path, long id) {
-		File f = new File(path);
-		if (f.exists()) {
-			DBInstanceContainer instContainer = new DBInstanceContainer(path,
-					id);
-			INST.put(id, instContainer);
-			placementPol.addInstance(id, instContainer.getInfo());
-			return true;
-		}
+//		File f = new File(path);
+//		if (f.exists()) {
+//			DBInstanceContainer instContainer = new DBInstanceContainer(path,
+//					id);
+//			INST.put(id, instContainer);
+//			placementPol.addInstance(id, instContainer.getInfo());
+//			return true;
+//		}
 		return false;
+	
 	}
 
 	@Override
@@ -793,6 +793,7 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 	public Node createNodeOn(long gid, long instanceID) {
 		if (PTX == null)
 			throw new NotInTransactionException();
+		if(INDEX.findNode(gid)!=null) new Error("dublicated Node ID found: "+gid);
 		DBInstanceContainer inst = INST.get(instanceID);
 		// create transaction if not existing
 		PTX.registerResource(instanceID);
@@ -857,13 +858,6 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 	@Override
 	public InstanceInfo getInstanceInfoFor(long id) {
 		return INST.get(id).getInfo();
-	}
-
-	@Override
-	public void resetLogging() {
-		for (DBInstanceContainer cont : INST.values()) {
-			cont.resetTraffic();
-		}
 	}
 
 	@Override

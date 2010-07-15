@@ -21,8 +21,9 @@ import org.neo4j.graphdb.event.TransactionEventHandler;
 import org.neo4j.kernel.EmbeddedGraphDatabase;
 
 
+import p_graph_service.InstanceInfo;
 import p_graph_service.PConst;
-import p_graph_service.core.InstanceInfo.InfoKey;
+import p_graph_service.InstanceInfo.InfoKey;
 
 /**
  * Wrapper for EmbeddedGraphDatabase contains information on size

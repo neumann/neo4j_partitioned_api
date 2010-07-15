@@ -5,9 +5,9 @@ import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.RelationshipType;
 
+import p_graph_service.InstanceInfo;
 import p_graph_service.PRelaABS;
-import p_graph_service.core.InstanceInfo;
-import p_graph_service.core.InstanceInfo.InfoKey;
+import p_graph_service.InstanceInfo.InfoKey;
 
 public class InfoRelationship extends PRelaABS{
 	private Relationship rs;

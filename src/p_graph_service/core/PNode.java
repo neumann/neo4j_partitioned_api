@@ -4,11 +4,9 @@ import java.util.Iterator;
 import org.neo4j.graphdb.Direction;
 import org.neo4j.graphdb.Node;
 
-import org.neo4j.graphdb.Expansion;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.NotInTransactionException;
 import org.neo4j.graphdb.Relationship;
-import org.neo4j.graphdb.RelationshipExpander;
 import org.neo4j.graphdb.RelationshipType;
 import org.neo4j.graphdb.ReturnableEvaluator;
 import org.neo4j.graphdb.StopEvaluator;
@@ -19,7 +17,6 @@ import p_graph_service.PConst;
 import p_graph_service.PNodeABS;
 
 
-@SuppressWarnings("deprecation")
 public class PNode extends PNodeABS{
 	private final PGraphDatabaseServiceImpl pdb;
 	private final long GID;

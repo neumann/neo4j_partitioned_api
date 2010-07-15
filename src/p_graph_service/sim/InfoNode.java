@@ -4,20 +4,18 @@ package p_graph_service.sim;
 import java.util.Iterator;
 
 import org.neo4j.graphdb.Direction;
-import org.neo4j.graphdb.Expansion;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Relationship;
-import org.neo4j.graphdb.RelationshipExpander;
 import org.neo4j.graphdb.RelationshipType;
 import org.neo4j.graphdb.ReturnableEvaluator;
 import org.neo4j.graphdb.StopEvaluator;
 import org.neo4j.graphdb.Traverser;
 import org.neo4j.graphdb.Traverser.Order;
 
+import p_graph_service.InstanceInfo;
 import p_graph_service.PNodeABS;
-import p_graph_service.core.InstanceInfo;
-import p_graph_service.core.InstanceInfo.InfoKey;
+import p_graph_service.InstanceInfo.InfoKey;
 
 @SuppressWarnings("deprecation")
 public class InfoNode extends PNodeABS{

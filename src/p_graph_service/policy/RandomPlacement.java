@@ -3,8 +3,8 @@ package p_graph_service.policy;
 import java.util.Random;
 import java.util.Vector;
 
+import p_graph_service.InstanceInfo;
 import p_graph_service.PlacementPolicy;
-import p_graph_service.core.InstanceInfo;
 
 public class RandomPlacement implements PlacementPolicy {
 	private Random rand;

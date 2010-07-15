@@ -1,11 +1,8 @@
 package p_graph_service;
 
-import java.io.File;
-
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Node;
 
-import p_graph_service.core.InstanceInfo;
 
 public interface PGraphDatabaseService extends GraphDatabaseService {
 	// this service identifier
@@ -17,7 +14,6 @@ public interface PGraphDatabaseService extends GraphDatabaseService {
 	
 	// storage information
 	public InstanceInfo getInstanceInfoFor(long id);
-	public void resetLogging();
 	public void resetLoggingOn(long id);
 	
 	// policy used when creating a node without specifying the target position
@@ -28,19 +24,19 @@ public interface PGraphDatabaseService extends GraphDatabaseService {
 	public boolean addInstance();
 	public boolean addInstance(long id);
 	public boolean removeInstance(long id);
+	// no implementation at the moment
 	public boolean migrateInstance(String path, long id);
 	
-	// creating a node or moving a node to a certain instance
+	// creating nodes with a certain GID or on a certain instance
 	public Node createNode(long GID);
 	public Node createNodeOn(long instanceID);
 	public Node createNodeOn(long GID, long instanceID);
+	
+	// move a set of nodes to target instance
 	public void moveNodes(Iterable<Node> nodes, long instanceID);
 	
 	// folder for read write log
 	public void setDBChangeLog(String file);
 	public String getDBChangeLog();
 	
-//	public Node getNodeByPos(long[] pos );
-//	public Relationship getRelaByPos(long[] pos );
-
 }

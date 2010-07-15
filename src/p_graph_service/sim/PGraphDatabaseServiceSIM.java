@@ -26,11 +26,22 @@ import org.neo4j.graphdb.event.KernelEventHandler;
 import org.neo4j.graphdb.event.TransactionEventHandler;
 import org.neo4j.kernel.EmbeddedGraphDatabase;
 
+import p_graph_service.InstanceInfo;
 import p_graph_service.PGraphDatabaseService;
 import p_graph_service.PlacementPolicy;
-import p_graph_service.core.InstanceInfo;
-import p_graph_service.core.InstanceInfo.InfoKey;
+import p_graph_service.InstanceInfo.InfoKey;
 import p_graph_service.policy.RandomPlacement;
+
+/**
+ * PGraphDB implementation simulated on a single GraphDatabaseService
+ * Partitions are color properties stored on each node.
+ * 
+ * 
+ * known issues:
+ * Faulty count of relationships in InstInfo
+ * 
+ */
+
 
 public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 	public final static String col = "_color";
@@ -153,6 +164,7 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 
 	@Override
 	public boolean addInstance(long id) {
+		if(INST.containsKey((byte)id)) throw new Error("dublicated Instance ID found: "+ id );
 		InstanceInfo inf = new InstanceInfo();
 		INST.put((byte) id, inf);
 		placementPol.addInstance(id, inf);
@@ -296,13 +308,6 @@ public class PGraphDatabaseServiceSIM implements PGraphDatabaseService {
 			}
 		}
 		return false;
-	}
-
-	@Override
-	public void resetLogging() {
-		for (InstanceInfo inf : INST.values()) {
-			inf.resetTraffic();
-		}
 	}
 
 	@Override

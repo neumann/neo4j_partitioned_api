@@ -2,9 +2,9 @@ package p_graph_service.policy;
 
 import java.util.HashMap;
 
+import p_graph_service.InstanceInfo;
 import p_graph_service.PlacementPolicy;
-import p_graph_service.core.InstanceInfo;
-import p_graph_service.core.InstanceInfo.InfoKey;
+import p_graph_service.InstanceInfo.InfoKey;
 
 public class LowNodecountPlacement implements PlacementPolicy {
 	private HashMap<Long, InstanceInfo> inst;
