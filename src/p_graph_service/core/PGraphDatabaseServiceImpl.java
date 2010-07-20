@@ -19,6 +19,8 @@ import org.neo4j.graphdb.RelationshipType;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.graphdb.event.KernelEventHandler;
 import org.neo4j.graphdb.event.TransactionEventHandler;
+//import org.neo4j.graphdb.event.KernelEventHandler;
+//import org.neo4j.graphdb.event.TransactionEventHandler;
 import org.neo4j.kernel.impl.nioneo.store.IdGenerator;
 import org.neo4j.kernel.impl.nioneo.store.IdGeneratorImpl;
 
@@ -423,6 +425,7 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 
 			for (Relationship rs : curN.getRelationships(Direction.OUTGOING)) {
 				Node eNode = rs.getEndNode();
+				long rsGID = (Long)rs.getProperty(PConst.rGID);
 				long[] newRsPos;
 
 				if (rs.hasProperty(PConst.IsHalf)) {
@@ -567,7 +570,7 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 				}
 
 				// update lookup
-				INDEX.addRela((Long) rs.getProperty(PConst.rGID), newRsPos);
+				INDEX.addRela(rsGID, newRsPos);
 				INST.get(newRsPos[1]).logAddRela();
 				INST.get(curPos[1]).logAddRela();
 
@@ -793,7 +796,7 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 	public Node createNodeOn(long gid, long instanceID) {
 		if (PTX == null)
 			throw new NotInTransactionException();
-		if(INDEX.findNode(gid)!=null) new Error("dublicated Node ID found: "+gid);
+		//if(INDEX.findNode(gid)!=null) new Error("dublicated Node ID found: "+gid);
 		DBInstanceContainer inst = INST.get(instanceID);
 		// create transaction if not existing
 		PTX.registerResource(instanceID);
@@ -854,7 +857,7 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 		throw new UnsupportedOperationException(
 				"Node.getGraphDatabase() not implemented");
 	}
-
+	
 	@Override
 	public InstanceInfo getInstanceInfoFor(long id) {
 		return INST.get(id).getInfo();
@@ -876,6 +879,7 @@ public class PGraphDatabaseServiceImpl implements PGraphDatabaseService {
 		throw new UnsupportedOperationException(
 		"Node.getGraphDatabase() not implemented");
 	}
+
 	
 
 	
